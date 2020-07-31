@@ -1,0 +1,20 @@
+  def test(in: AnyRef): List[String] = macro test_impl
+
+  def test_impl(c: blackbox.Context)(in: c.Expr[AnyRef]): c.Tree = {
+    import c._
+    import c.universe._
+
+    c.echo(
+      c.enclosingPosition,
+      in.tree.tpe.members.filter(x => x.isMethod && x.isPublic)
+        .map{x=>
+
+
+          s"${x.name}  ${x.typeSignature.resultType}"
+
+        }
+        .mkString("\n")
+    )
+
+    c.parse("Nil")
+  }

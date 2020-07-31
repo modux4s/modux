@@ -1,0 +1,31 @@
+/user:
+  get:
+    parameters:
+      - name: "filter"
+        in: "query"
+        required: true
+        type: "string"
+  post:
+    parameters:
+      - name: "body"
+        in: "body"
+        required: true
+        schema:
+          $ref: "#/definitions/modux.plugin.macros.model.User"
+/user/{id}:
+  get:
+    parameters:
+      - name: "id"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "age"
+        in: "query"
+        required: false
+        type: "integer"
+      - name: "items"
+        in: "query"
+        required: false
+        type: "array"
+        items:
+          type: "string"

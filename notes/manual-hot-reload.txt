@@ -1,0 +1,70 @@
+  val manualDevServerImpl: Def.Initialize[Task[State]] = Def.task {
+
+    import scala.collection.JavaConverters._
+
+    val events = Array(StandardWatchEventKinds.ENTRY_MODIFY)
+    val duration = pollInterval.value
+    val pollingTime = duration.toMillis
+    val service: WatchService = WatchService.polling(duration)
+    val gs: ModuxState = moduxState.value
+    ((sourceDirectory in Compile).value ** "*").filter(_.isDirectory).get().map(_.toPath).foreach(x => service.register(x, events: _*))
+
+    service.init()
+
+    @tailrec
+    def keepRunning(): Boolean = {
+      System.in.available() == 0 || (System.in.read().toChar != '\n' && keepRunning())
+    }
+
+    @tailrec
+    def hasChanges: Boolean = {
+      val key = service.poll(duration)
+      Option(key) match {
+        case Some(value) =>
+
+          val events = value
+            .pollEvents()
+            .asScala
+            .collect { case x: WatchEvent[JPath] => x }
+            .filter(_.context().toFile.isFile)
+
+          value.reset()
+          events.nonEmpty || hasChanges
+        case None => false
+      }
+    }
+
+    @tailrec
+    def watch(state: State, gs: ModuxState): State = {
+
+      val newState = {
+        if (hasChanges) {
+          Project.runTask(compile in Compile, state) match {
+            case None =>
+              state
+            case Some((s, r)) =>
+
+              r match {
+                case Inc(_) =>
+                case _ =>
+                  gs.serverReloader.reload()
+              }
+
+              s
+          }
+        } else {
+          state
+        }
+      }
+
+      if (keepRunning()) {
+        Thread.sleep(pollingTime)
+        watch(newState, gs)
+      } else {
+        newState
+      }
+    }
+
+    gs.serverReloader.reload()
+    watch(state.value, gs)
+  }
