@@ -1,17 +1,40 @@
 
 import sbt._
 
+
 ThisBuild / version := "0.1.0-SNAPSHOT"
-ThisBuild / scalaVersion := "2.12.12"
+ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
+ThisBuild / scalaVersion := "2.12.10"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
 
-lazy val common = (project in file("./modux/common"))
+Global / onChangedBuildSource := ReloadOnSourceChanges
+ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
+
+bintrayReleaseOnPublish in ThisBuild := false
+
+lazy val disablingPublishingSettings =
+  Seq(skip in publish := true, publishArtifact := false)
+
+lazy val enablingPublishingSettings = Seq(
+  publishArtifact := true,
+  publishMavenStyle := true,
+  // http://www.scala-sbt.org/0.12.2/docs/Detailed-Topics/Artifacts.html
+  publishArtifact in Test := false,
+  // Bintray
+  bintrayPackageLabels := Seq("scala", "sbt"),
+  bintrayRepository := "maven",
+  bintrayVcsUrl :=  Option("https://github.com/joacovela16/modux"),
+  bintrayOrganization := Option("jsoft"),
+)
+
+
+lazy val common = (project in file("./modules/common"))
   .settings(
     name := "modux-common",
+
+    enablingPublishingSettings,
     libraryDependencies ++= Seq(
-      Deps.macwire,
-      Deps.macwireUtil,
       Deps.configScala,
       Deps.typeSafeConf,
       Deps.xbean,
@@ -26,7 +49,6 @@ lazy val common = (project in file("./modux/common"))
       Deps.jacksonDatatypeJsr,
       Deps.jacksonDatatype,
       Deps.jacksonYaml,
-      Deps.akkaHttpCache,
       Deps.swaggerCore,
       Deps.swaggerModel,
       Deps.swaggerJaxrs2,
@@ -34,23 +56,29 @@ lazy val common = (project in file("./modux/common"))
     )
   )
 
-lazy val model = (project in file("./modux/model"))
+lazy val model = (project in file("./modules/model"))
   .aggregate(common)
   .dependsOn(common)
   .settings(
-    name := "modux-model"
+    name := "modux-model",
+    enablingPublishingSettings,
+
   )
 
 
-lazy val devShared = (project in file("./modux/shared"))
-  .settings(name := "modux-shared")
+lazy val devShared = (project in file("./modules/shared"))
+  .settings(
+    name := "modux-shared",
+    enablingPublishingSettings,
+  )
 
-lazy val macros = (project in file("./modux/macros"))
+lazy val macros = (project in file("./modules/macros"))
   .aggregate(model)
   .dependsOn(model)
   .settings(
     name := "modux-macros",
-    scalacOptions ++= Seq("-language:experimental.macros" /*, "-Ymacro-debug-lite"*/),
+    scalacOptions ++= Seq("-language:experimental.macros"),
+    enablingPublishingSettings,
     libraryDependencies ++= Seq(
       Deps.jacksonDataformatXml,
       Deps.aaltoXmlParser,
@@ -58,31 +86,24 @@ lazy val macros = (project in file("./modux/macros"))
     )
   )
 
-lazy val core = (project in file("./modux/core"))
+lazy val core = (project in file("./modules/core"))
   .aggregate(macros, devShared)
   .dependsOn(macros, devShared)
   .settings(
     name := "modux-core",
-    scalacOptions ++= Seq("-language:experimental.macros" /*, "-Ymacro-debug-lite"*/),
-    libraryDependencies ++= Seq(
-    )
-    //    javacOptions ++= Seq("-Dscala.usejavacp=true")
+    enablingPublishingSettings,
+    libraryDependencies ++= Seq()
   )
 
-lazy val root = (project in file("./modux/plugin"))
-  .enablePlugins(SbtPlugin)
+lazy val root = (project in file("./"))
   .aggregate(core, devShared)
   .dependsOn(core, devShared)
   .settings(
     sbtPlugin := true,
     name := "modux-plugin",
+    enablingPublishingSettings,
     libraryDependencies ++= Seq(
-      Deps.scalactic,
-      Deps.scalatest,
-    ),
-    scriptedLaunchOpts := {
-      scriptedLaunchOpts.value ++ Seq("-Dplugin.version=" + version.value)
-    },
-    scriptedBufferLog := false,
-    libraryDependencies ++= Seq(Deps.xbean, sbt.Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12"))
+      Deps.xbean,
+      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
+    )
   )

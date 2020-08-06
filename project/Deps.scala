@@ -2,10 +2,11 @@ import sbt._
 
 object Deps {
 
+
+
   //************** VERSIONS **************//
-  private lazy val scalaVersion: String = "2.12.10"
   private lazy val akkaVersion: String = "2.6.8"
-  private lazy val akkaHTTPVersion: String = "10.1.12"
+  private lazy val akkaHTTPVersion: String = "10.2.0"
   private lazy val scalaLoggingVersion: String = "3.9.2"
   private lazy val xbeanVersion: String = "4.16"
   private lazy val ansiInterpolatorVersion: String = "1.1.0"
@@ -23,9 +24,7 @@ object Deps {
   private lazy val javaxrsVersion: String = "2.0.1"
 
   //************** DI **************//
-  lazy val macwireUtil = "com.softwaremill.macwire" %% "util" % macwireVersion
-  lazy val macwire = "com.softwaremill.macwire" %% "macros" % macwireVersion
-  lazy val sbtNativePackager = "com.typesafe.sbt" %% "sbt-native-packager" % sbtNativePackagerVersion
+  lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
   lazy val xbean = "org.apache.xbean" % "xbean-classloader" % xbeanVersion
   //************** AKKA **************//
   lazy val akkaHTTP = "com.typesafe.akka" %% "akka-http" % akkaHTTPVersion
@@ -60,6 +59,5 @@ object Deps {
   //************** TESTING **************//
   lazy val scalactic = "org.scalactic" %% "scalactic" % scalaTestVersion
   lazy val scalatest = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
-  //************** SCALA **************//
-  lazy val scalaReflect = "org.scala-lang" % "scala-reflect" % scalaVersion
+
 }
