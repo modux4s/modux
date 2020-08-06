@@ -1,0 +1,17 @@
+- **Basic**
+  - [Introduction](/basic/intro)
+  - [ServiceDescriptor DSL](/basic/service-descriptor)
+- **Advanced**
+  - [Introduction](/basic/intro)
+  - [Metadata Distribution](/metadata-distribution)
+  - [IDP/SP Configuration](/configuration)
+    - [Identity Provider](/idp-configuration)
+    - [Service Provider](/sp-configuration)
+  - [Attributes & Template](/template)
+  - [Helper Functions](/helpers)
+  - [Multiple Entities](/multi-entities)
+- **Examples**
+  - [Gitlab](/gitlab)
+  - [OneLogin](/onelogin)
+  - [Okta](/okta)
+    - [Inbound SAML](/okta-inbound)
