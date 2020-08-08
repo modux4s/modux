@@ -1,16 +1,16 @@
 package modux.model
 
 import akka.http.scaladsl.server.Route
+import akka.pattern.CircuitBreaker
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.Parameter
 import modux.model.exporter.SchemaDescriptor
 
+trait RestService
 
-trait RestService {
-}
-
-abstract class RestInstance extends RestService {
+trait RestInstance extends RestService {
   def route: Route
+  def withCircuitBreak(circuitBreaker: CircuitBreaker): Route
 }
 
 trait RestProxy extends RestService {

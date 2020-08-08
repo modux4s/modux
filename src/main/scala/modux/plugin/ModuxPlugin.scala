@@ -20,6 +20,8 @@ import sbt.{Compile, Def, _}
 
 object ModuxPlugin extends AutoPlugin {
 
+
+  private final val CONFIG_DIR: String = "conf"
   private final val store: CacheStore = sbt.util.CacheStore(file("./target/streams/modux"))
 
   private def lastIsCompile(): Boolean = {
@@ -43,7 +45,6 @@ object ModuxPlugin extends AutoPlugin {
 
   val watchOnFileInputEventImpl: (Int, Watch.Event) => Watch.ContinueWatch = (_: Int, y: Watch.Event) => {
     val path: String = y.path.toFile.getAbsolutePath
-    val current: Long = System.currentTimeMillis()
     if (path.endsWith("~")) {
       Watch.Ignore
     } else {
@@ -111,7 +112,7 @@ object ModuxPlugin extends AutoPlugin {
     val cd: File = (classDirectory in(Compile, run)).value
     val rd: Seq[File] = Seq(
       (resourceDirectory in(Compile, run)).value,
-      baseDirectory.value / "config"
+      baseDirectory.value / CONFIG_DIR
     )
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
@@ -153,15 +154,15 @@ object ModuxPlugin extends AutoPlugin {
       Def.task {
 
         PrintUtils.cyan(
-        """
-          #
-          #***************************************************
-          #      _______  _____  ______  _     _ _     _
-          #      |  |  | |     | |     \ |     |  \___/
-          #      |  |  | |_____| |_____/ |_____| _/   \_
-          #
-          #***************************************************
-          #""".stripMargin('#')
+          """
+            #
+            #***************************************************
+            #      _______  _____  ______  _     _ _     _
+            #      |  |  | |     | |     \ |     |  \___/
+            #      |  |  | |_____| |_____/ |_____| _/   \_
+            #
+            #***************************************************
+            #""".stripMargin('#')
         )
 
         ModuxState.update(InProgress(state.value, createServer.value))
@@ -217,46 +218,26 @@ object ModuxPlugin extends AutoPlugin {
     moduxLogFile := "logback.xml",
     moduxExportYaml := saveExport("yaml").value,
     moduxExportJson := saveExport("json").value,
-    mappings in Universal ++= directory("config"),
+    mappings in Universal ++= directory(CONFIG_DIR),
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Seq(moduxCore),
-    mainClass in Compile := Option("modux.core.server.Main"),
+    mainClass in Compile := Option("modux.core.server.ProdServer"),
     mainClass in(Compile, run) := Option("modux.core.server.DevServer"),
     run in Compile := runnerImpl.evaluated,
     watchStartMessage in(Compile, run) := watchStartMessageImpl.value,
     watchPersistFileStamps in(Compile, run) := true,
-    watchTriggers in(Compile, run) += baseDirectory.value.toGlob / "config" / **,
+    watchTriggers in(Compile, run) += baseDirectory.value.toGlob / CONFIG_DIR / **,
     watchOnTermination in(Compile, run) := watchOnTerminationImpl,
     watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
     watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,
     watchForceTriggerOnAnyChange in(Compile, run) := false,
-    scriptClasspath := Seq("*", "../config"),
-    sourceGenerators in Compile += Def.task {
-      val dir: File = (sourceManaged in Compile).value / "scala" / "modux" / "core" / "server" / "Main.scala"
-      val appName: String = moduxAppName.value
-      val host: String = moduxHost.value
-      val port: Int = moduxPort.value
-
-      streams.value.log.info(s"Generando código")
-
-      val src: String =
-        s"""
-           | package modux.core.server
-           | import modux.core.server.service.ModuxServer
-           | import scala.io.StdIn
-           | import modux.shared.PrintUtils
-           |
-           | object Main extends App{
-           |   val server:ModuxServer = ModuxServer("$appName", "$host", $port, this.getClass.getClassLoader)
-           |   PrintUtils.info("Press enter to exit...")
-           |   StdIn.readLine()
-           |   PrintUtils.info("Shouting down...")
-           |   server.stop()
-           | }
-           |""".stripMargin
-
-      IO.write(dir, src)
-      Seq(dir)
-    }.taskValue
+    scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
+    javaOptions in Universal := Def.task {
+      Seq(
+        s"-Dmodux.host=${moduxHost.value}",
+        s"-Dmodux.port=${moduxPort.value}",
+        s"-Dmodux.name=${moduxAppName.value}",
+      )
+    }.value
   )
 }

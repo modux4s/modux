@@ -190,7 +190,12 @@ object ServiceSupportMacro {
     lazy val errorTpl: String =
       s"""
          |e match {
-         |  case m:ResponseAsFalseFail => complete(m.data)
+         |  case m: ResponseAsFalseFail => complete(m.data)
+         |  case ex: CircuitBreakerOpenException =>
+         |    extractRequestContext { _ctx_ =>
+         |      _ctx_.request.entity.dataBytes.runWith(Sink.cancelled)(_ctx_.materializer)
+         |      reject(CircuitBreakerOpenRejection(ex))
+         |    }
          |  case x => failWith(x)
          |}
          |""".stripMargin
@@ -204,7 +209,31 @@ object ServiceSupportMacro {
       }
     }
 
-    lazy val entityTpl: String = {
+    def entityTpl(userCircuitBreak: Boolean): String = {
+
+      val baseType: String = s"[(${responseType.toString}, ResponseHeader)]"
+      val onCompleteTpl: String = {
+
+        if (userCircuitBreak) {
+          s"""
+             |  circuitBreaker.withCircuitBreaker$baseType(
+             |  srv,
+             |    (x:Try$baseType) => {
+             |      x match{
+             |        case Failure(_exe_) =>
+             |          _exe_ match{
+             |            case _: ResponseAsFalseFail => false
+             |            case _ => true
+             |          }
+             |        case _ => false
+             |      }
+             |    }
+             |  )
+             |""".stripMargin
+        } else {
+          "srv"
+        }
+      }
 
       if (isWebSocket) {
         s"""
@@ -220,8 +249,8 @@ object ServiceSupportMacro {
           s"""
              |extractDataBytes{__src__ =>
              |  extractRequest{__request__ =>
-             |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
-             |    onComplete(srv){
+             |    val srv: Future$baseType  = serviceCall.transform(__src__, AkkaUtils(__request__))
+             |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
              |      case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
@@ -236,8 +265,8 @@ object ServiceSupportMacro {
              |  import modux.macros.serializer.SerializationSupport
              |
              |  entity(SerializationSupport.moduxAsSource[$requestTypeStr]){__src__ =>
-             |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
-             |    onComplete(srv){
+             |    val srv: Future$baseType  = serviceCall.transform(__src__, AkkaUtils(__request__))
+             |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
              |      case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
@@ -252,8 +281,8 @@ object ServiceSupportMacro {
         if (isEmptyRequest) {
           s"""
              |extractRequest{__request__ =>
-             |  val srv = serviceCall.transform($requestTypeStr, AkkaUtils(__request__))
-             |  onComplete(srv){
+             |  val srv: Future$baseType = serviceCall.transform($requestTypeStr, AkkaUtils(__request__))
+             |  onComplete($onCompleteTpl){
              |    case Failure(e) =>
              |      $errorTpl
              |    case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
@@ -264,8 +293,8 @@ object ServiceSupportMacro {
           s"""
              |extractRequest{ __request__ =>
              |  entity(as[$requestTypeStr]){ __entity__ =>
-             |    val srv = serviceCall.transform(__entity__, AkkaUtils(__request__))
-             |    onComplete(srv){
+             |    val srv: Future$baseType = serviceCall.transform(__entity__, AkkaUtils(__request__))
+             |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
              |      case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
@@ -287,7 +316,7 @@ object ServiceSupportMacro {
       }
     }
 
-    lazy val bodyTpl: String = {
+    def bodyTpl(userCircuitBreak: Boolean): String = {
       val parsedArguments: Seq[AsPathParam] = parsedPath.parsedArguments
       val argsType: String = parsedArguments.flatMap(x => argsMap.get(x.name)).map(x => s""" ${x.name}: ${x.tpt.tpe} """).mkString("(", ",", ") =>")
       val pathArguments: String = if (parsedArguments.isEmpty) "" else argsType
@@ -297,11 +326,11 @@ object ServiceSupportMacro {
 
       val returnTpl: String = {
         if (isWebSocket) {
-          entityTpl
+          entityTpl(userCircuitBreak)
         } else {
           s"""
              |val serviceCall: ${callType.toString} = callback$argumentsCall
-             |$entityTpl
+             |${entityTpl(userCircuitBreak)}
              |""".stripMargin
         }
       }
@@ -370,26 +399,31 @@ object ServiceSupportMacro {
          |""".stripMargin
     }
 
+    def tpl(useCircuitBreak: Boolean): String = s"$pathTpl(${bodyTpl(useCircuitBreak)})"
+
     s"""
        |new modux.model.RestInstance {
        |    import akka.http.scaladsl.server.Directives._
-       |    import scala.util.{Success, Failure}
+       |    import scala.util.{Success, Failure, Try}
+       |    import scala.concurrent.Future
        |    import akka.http.scaladsl.server.Directives.{path => __path__}
        |    import modux.model._
        |    import akka.http.scaladsl.server.Route
        |    import akka.http.scaladsl.model.StatusCodes
-       |    import org.slf4j.LoggerFactory
        |    import modux.model.header._
        |    import akka.http.scaladsl.common.EntityStreamingSupport
        |    import modux.macros.utils.AkkaUtils
        |    import modux.model.dsl.ResponseAsFalseFail
+       |    import akka.pattern.CircuitBreakerOpenException
+       |    import akka.pattern.CircuitBreaker
+       |    import akka.http.scaladsl.server.CircuitBreakerOpenRejection
+       |    import akka.stream.scaladsl.Sink
        |
-       |    private val __logger__ = LoggerFactory.getLogger(this.getClass())
-       |    private val routeImpl: Route = $pathTpl($bodyTpl)
        |    private val callback = $funcRef
        |    $extraAttrs
        |
-       |    override def route: Route = routeImpl
+       |    override def route: Route = ${tpl(false)}
+       |    override def withCircuitBreak(circuitBreaker: CircuitBreaker): Route = ${tpl(true)}
        |}
        |""".stripMargin
   }

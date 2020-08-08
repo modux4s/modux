@@ -28,8 +28,7 @@ object WebSocketManager {
   }
 }
 
-final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT], Unit])
-                                     (implicit mapper: WebSocketCodec[IN, OUT], as: ActorSystem[Nothing]) {
+final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT], Unit])(implicit mapper: WebSocketCodec[IN, OUT], as: ActorSystem[Nothing]) {
 
   private lazy val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
@@ -42,9 +41,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
   private def initActor(id: String): Behavior[WSCommand] = Behaviors.setup { ctx =>
 
     Behaviors.receiveMessagePartial {
-      case HandleOut(actorRef) =>
-
-        initializedActor(id, actorRef)
+      case HandleOut(actorRef) => initializedActor(id, actorRef)
     }
   }
 
@@ -59,8 +56,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
 
         mapper.encode(x.message).onComplete {
           case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
-          case Success(messageIn) =>
-            call.invoke(OnMessage(connectionRef, messageIn))
+          case Success(messageIn) => call.invoke(OnMessage(connectionRef, messageIn))
         }
 
         Behaviors.same

@@ -8,6 +8,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.{Directives, Route}
+import akka.pattern.CircuitBreaker
 import com.typesafe.config.{Config, ConfigFactory}
 import modux.core.api.ModuleX
 import modux.core.server.domain.Capture
@@ -29,7 +30,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   private lazy val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val binding: AtomicReference[Http.ServerBinding] = new AtomicReference[Http.ServerBinding]()
 
-  private val localConfig: Config = ConfigFactory.load(appClassloader)
+  private val localConfig: Config = ConfigFactory.parseString(ModuxServer(appName)).withFallback(ConfigFactory.load(appClassloader))
   private implicit val sys: ClassicAS = ClassicAS(appName, Option(localConfig), Option(appClassloader), None)
   private val sysTyped: ActorSystem[Nothing] = sys.toTyped
   private implicit val ec: ExecutionContextExecutor = sysTyped.executionContext
@@ -42,7 +43,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 
   val capture: Capture = captureCall(context, localConfig)
 
-  Http().newServerAt( host, port).bindFlow(capture.routes).onComplete {
+  Http().newServerAt(host, port).bindFlow(capture.routes).onComplete {
     case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
     case Success(value) => binding.set(value)
   }
@@ -68,20 +69,30 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   }
 
   private def captureCall(context: Context, localConfig: Config): Capture = {
+
     import com.github.andyglow.config._
     val routes: mutable.ArrayBuffer[Route] = mutable.ArrayBuffer.empty
     val modules: mutable.ArrayBuffer[ModuleX] = mutable.ArrayBuffer.empty
     val specs: mutable.ArrayBuffer[ServiceDescriptor] = mutable.ArrayBuffer.empty
 
+    //************** VALS **************//
+    lazy val maxFailure: Int = localConfig.get[Int]("modux.circuit-breaker.maxFailure")
+    lazy val callTimeoutDur: Duration = Duration(localConfig.get[String]("modux.circuit-breaker.callTimeout"))
+    lazy val resetTimeoutDut: Duration = Duration(localConfig.get[String]("modux.circuit-breaker.resetTimeout"))
+    lazy val callTimeout: FiniteDuration = FiniteDuration(callTimeoutDur.toMillis, callTimeoutDur.unit)
+    lazy val resetTimeout: FiniteDuration = FiniteDuration(resetTimeoutDut.toMillis, resetTimeoutDut.unit)
     //************** CACHE **************//
 
     localConfig
       .get[List[String]]("modux.modules")
       .map(x => appClassloader.loadClass(x))
       .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
-      .foreach { x =>
+      .zipWithIndex
+      .foreach { case (x, idx) =>
 
         modules.append(x)
+
+        val idxFinal: Int = idx + 1
 
         Try(x.onStart()) match {
           case Failure(exception) =>
@@ -89,10 +100,15 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
             PrintUtils.error(s"${x.getClass.getSimpleName} failing.")
           case _ =>
 
-            x.providers.foreach { srv =>
+            PrintUtils.info(s"$idxFinal. ${x.getClass.getSimpleName}")
+
+            x.providers.zipWithIndex.foreach { case (srv, idy) =>
+
               val serviceSpec: ServiceDescriptor = srv.serviceDescriptor
+
               specs.append(serviceSpec)
-              PrintUtils.info(s"\tLoading ${serviceSpec.name}")
+
+              PrintUtils.info(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK")
 
               val route: Route = {
                 import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
@@ -100,7 +116,16 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
                   serviceSpec.servicesCall.flatMap {
                     case x: RestEntry =>
                       x.instance match {
-                        case instance: RestInstance => Option(instance.route)
+                        case instance: RestInstance =>
+
+                          Option {
+                            if (x._useBreaker) {
+                              val cb: CircuitBreaker = CircuitBreaker(context.classicActorSystem.scheduler, maxFailure, callTimeout, resetTimeout)
+                              instance.withCircuitBreak(cb)
+                            } else {
+                              instance.route
+                            }
+                          }
                         case _ => None
                       }
                     case _ => None
@@ -115,11 +140,69 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 
               routes += route
             }
-
-            PrintUtils.info(s"${x.getClass.getSimpleName} active.")
         }
       }
 
     Capture(Directives.concat(routes: _*), modules, specs)
+  }
+}
+
+object ModuxServer {
+  def apply(appName: String): String = {
+    s"""
+       |
+       |modux{
+       |  circuit-breaker{
+       |    maxFailure = 1
+       |    callTimeout = "10 s"
+       |    resetTimeout = "60 s"
+       |  }
+       |}
+       |
+       |akka {
+       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
+       |
+       |  loglevel = "info"
+       |  stdout-loglevel = "off"
+       |
+       |  actor {
+       |    provider = "cluster"
+       |    allow-java-serialization = on
+       |
+       |    serializers {
+       |      kryo = "io.altoo.akka.serialization.kryo.KryoSerializer"
+       |    }
+       |
+       |    serialization-bindings {
+       |      "java.io.Serializable" = kryo
+       |    }
+       |  }
+       |
+       |  http {
+       |    server {
+       |      websocket {
+       |        periodic-keep-alive-max-idle = 1 second
+       |      }
+       |    }
+       |  }
+       |
+       |  remote.artery {
+       |    canonical.port = 2553
+       |    canonical.hostname = localhost
+       |  }
+       |
+       |  cluster {
+       |    seed-nodes = [
+       |      "akka://$appName@localhost:2553"
+       |    ]
+       |
+       |    sharding {
+       |      number-of-shards = 100
+       |    }
+       |
+       |    downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
+       |  }
+       |}
+       |""".stripMargin
   }
 }
