@@ -6,18 +6,17 @@ import akka.util.ByteString
 import modux.macros.MacroUtils._
 import modux.macros.utils.SchemaUtils
 import modux.model._
-import modux.model.exporter.SchemaDescriptor
+import modux.model.dsl.RestEntryExtension
+import modux.model.exporter.{EvidenceDescriptor, SchemaDescriptor}
 import modux.model.ws.WSEvent
 
 import scala.collection.mutable
+import scala.concurrent.Future
 import scala.reflect.macros.blackbox
 import scala.util.{Failure, Success, Try => stry}
 
 //noinspection NotImplementedCode,DuplicatedCode
 object ServiceSupportMacro {
-
-  //************** ***** **************//
-
 
   def staticServe(c: blackbox.Context)(url: c.Expr[String], dir: c.Expr[String]): c.Expr[RestService] = {
 
@@ -111,6 +110,7 @@ object ServiceSupportMacro {
       }
     }
 
+    c.echo(c.enclosingPosition, treeBuild)
     c.Expr(c.parse(treeBuild))
   }
 
@@ -209,31 +209,9 @@ object ServiceSupportMacro {
       }
     }
 
-    def entityTpl(userCircuitBreak: Boolean): String = {
+    def entityTpl: String = {
 
-      val baseType: String = s"[(${responseType.toString}, ResponseHeader)]"
-      val onCompleteTpl: String = {
-
-        if (userCircuitBreak) {
-          s"""
-             |  circuitBreaker.withCircuitBreaker$baseType(
-             |  srv,
-             |    (x:Try$baseType) => {
-             |      x match{
-             |        case Failure(_exe_) =>
-             |          _exe_ match{
-             |            case _: ResponseAsFalseFail => false
-             |            case _ => true
-             |          }
-             |        case _ => false
-             |      }
-             |    }
-             |  )
-             |""".stripMargin
-        } else {
-          "srv"
-        }
-      }
+      val onCompleteTpl: String = "__extensions.foldLeft(srv) { case (acc, x) => x.call(acc) }"
 
       if (isWebSocket) {
         s"""
@@ -249,7 +227,7 @@ object ServiceSupportMacro {
           s"""
              |extractDataBytes{__src__ =>
              |  extractRequest{__request__ =>
-             |    val srv: Future$baseType  = serviceCall.transform(__src__, AkkaUtils(__request__))
+             |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
@@ -264,8 +242,8 @@ object ServiceSupportMacro {
              |extractRequest{__request__ =>
              |  import modux.macros.serializer.SerializationSupport
              |
-             |  entity(SerializationSupport.moduxAsSource[$requestTypeStr]){__src__ =>
-             |    val srv: Future$baseType  = serviceCall.transform(__src__, AkkaUtils(__request__))
+             |  entityAkka(SerializationSupport.moduxAsSource[$requestTypeStr]){__src__ =>
+             |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
@@ -281,7 +259,7 @@ object ServiceSupportMacro {
         if (isEmptyRequest) {
           s"""
              |extractRequest{__request__ =>
-             |  val srv: Future$baseType = serviceCall.transform($requestTypeStr, AkkaUtils(__request__))
+             |  val srv = serviceCall.transform($requestTypeStr, AkkaUtils(__request__))
              |  onComplete($onCompleteTpl){
              |    case Failure(e) =>
              |      $errorTpl
@@ -292,8 +270,8 @@ object ServiceSupportMacro {
         } else {
           s"""
              |extractRequest{ __request__ =>
-             |  entity(as[$requestTypeStr]){ __entity__ =>
-             |    val srv: Future$baseType = serviceCall.transform(__entity__, AkkaUtils(__request__))
+             |  entityAkka(as[$requestTypeStr]){ __entity__ =>
+             |    val srv = serviceCall.transform(__entity__, AkkaUtils(__request__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
@@ -316,7 +294,7 @@ object ServiceSupportMacro {
       }
     }
 
-    def bodyTpl(userCircuitBreak: Boolean): String = {
+    def bodyTpl: String = {
       val parsedArguments: Seq[AsPathParam] = parsedPath.parsedArguments
       val argsType: String = parsedArguments.flatMap(x => argsMap.get(x.name)).map(x => s""" ${x.name}: ${x.tpt.tpe} """).mkString("(", ",", ") =>")
       val pathArguments: String = if (parsedArguments.isEmpty) "" else argsType
@@ -326,11 +304,11 @@ object ServiceSupportMacro {
 
       val returnTpl: String = {
         if (isWebSocket) {
-          entityTpl(userCircuitBreak)
+          entityTpl
         } else {
           s"""
              |val serviceCall: ${callType.toString} = callback$argumentsCall
-             |${entityTpl(userCircuitBreak)}
+             |$entityTpl
              |""".stripMargin
         }
       }
@@ -399,14 +377,14 @@ object ServiceSupportMacro {
          |""".stripMargin
     }
 
-    def tpl(useCircuitBreak: Boolean): String = s"$pathTpl(${bodyTpl(useCircuitBreak)})"
+    def tpl: String = s"$pathTpl($bodyTpl)"
 
     s"""
        |new modux.model.RestInstance {
        |    import akka.http.scaladsl.server.Directives._
        |    import scala.util.{Success, Failure, Try}
        |    import scala.concurrent.Future
-       |    import akka.http.scaladsl.server.Directives.{path => __path__}
+       |    import akka.http.scaladsl.server.Directives.{path => __path__, entity => entityAkka}
        |    import modux.model._
        |    import akka.http.scaladsl.server.Route
        |    import akka.http.scaladsl.model.StatusCodes
@@ -418,12 +396,14 @@ object ServiceSupportMacro {
        |    import akka.pattern.CircuitBreaker
        |    import akka.http.scaladsl.server.CircuitBreakerOpenRejection
        |    import akka.stream.scaladsl.Sink
+       |    import modux.model.dsl.RestEntryExtension
        |
        |    private val callback = $funcRef
        |    $extraAttrs
        |
-       |    override def route: Route = ${tpl(false)}
-       |    override def withCircuitBreak(circuitBreaker: CircuitBreaker): Route = ${tpl(true)}
+       |    override def route(__extensions: Seq[RestEntryExtension]): Route = {
+       |      $tpl
+       |    }
        |}
        |""".stripMargin
   }
@@ -480,17 +460,23 @@ object ServiceSupportMacro {
     val storeRef: mutable.Map[String, String] = mutable.Map.empty
 
     val requestMat: String = {
-      if (isEmptyRequest || isSourceRequest || isWebSocket)
+      if (isEmptyRequest || isWebSocket)
         "None"
-      else {
+      else if (isSourceRequest) {
+        val head: c.universe.Type = requestType.typeArgs.head
+        schemaUtil.extractArraySchema(head, storeRef)
+      } else {
         val _ = schemaUtil.iterator(requestType, storeRef, Map.empty)
         schemaUtil.extractSchema(requestType, storeRef)
       }
     }
 
     val responseMat: String = {
-      if (isEmptyResponse || isSourceResponse || isWebSocket) {
+      if (isEmptyResponse || isWebSocket) {
         "None"
+      } else if (isSourceResponse) {
+        val head: c.universe.Type = responseType.typeArgs.head
+        schemaUtil.extractArraySchema(head, storeRef)
       } else {
         val _ = schemaUtil.iterator(responseType, storeRef, Map.empty)
         schemaUtil.extractSchema(responseType, storeRef)
@@ -505,6 +491,7 @@ object ServiceSupportMacro {
        |  import io.swagger.v3.oas.models.media._
        |  import io.swagger.v3.oas.models.parameters._
        |  import modux.model.exporter.SchemaDescriptor
+       |  import modux.model.exporter.EvidenceDescriptor
        |
        |  override def ignore: Boolean = $isWebSocket
        |  override def pathParameter: Seq[Parameter] = $pathParamInf

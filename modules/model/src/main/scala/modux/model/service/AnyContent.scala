@@ -14,16 +14,16 @@ object AnyContent {
   private def mapper[A, IN](c: Call[IN, Content])(implicit ec: ExecutionContext, strMarshaller: ToResponseMarshaller[String], scMarshaller: ToResponseMarshaller[StatusCode]): Call[IN, AnyContent] = {
     c
       .mapResponse { case (content, header) =>
-      header
-        .withStatus(content.status)
-        .withHeaders(content.headers)
-        .withCookies(content.cookies)
-    }
+        header
+          .withStatus(content.status)
+          .withHeaders(content.headers)
+          .withCookies(content.cookies)
+      }
       .map { (content, _) =>
 
         Future {
           content match {
-            case x: WithContent[A @unchecked] =>
+            case x: WithContent[A@unchecked] =>
 
               new AnyContent {
                 override type T = A
@@ -60,5 +60,5 @@ object AnyContent {
       }
   }
 
-  def apply[T](f: => Future[Content])(implicit ec: ExecutionContext): Call[NotUsed, AnyContent] = mapper(RestCall((_, _) => f ))
+  def apply[T](f: => Future[Content])(implicit ec: ExecutionContext): Call[NotUsed, AnyContent] = mapper(Call.handleRequest((_, _) => f))
 }

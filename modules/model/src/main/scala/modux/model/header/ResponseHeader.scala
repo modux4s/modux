@@ -1,11 +1,14 @@
 package modux.model.header
 
+import akka.http.scaladsl.model.ContentType
+
 sealed trait ContentAs
 case object Default extends ContentAs
 case object Json extends ContentAs
 case object Xml extends ContentAs
 case object TextPlain extends ContentAs
 case object Html extends ContentAs
+case class Custom(contentType: ContentType) extends ContentAs
 
 trait ResponseHeader {
   def status: Int
@@ -34,12 +37,12 @@ trait ResponseHeader {
 }
 
 final case class ResponseHeaderImpl(
-                               status: Int,
-                               uri:String,
-                               contentAs: ContentAs = Default,
-                               headers: Map[String, String] = Map.empty,
-                               cookies: Map[String, String] = Map.empty,
-                               deleteCookies: Set[String] = Set.empty
+                                     status: Int,
+                                     uri:String,
+                                     contentAs: ContentAs = Default,
+                                     headers: Map[String, String] = Map.empty,
+                                     cookies: Map[String, String] = Map.empty,
+                                     deleteCookies: Set[String] = Set.empty
                              ) extends ResponseHeader {
 
 

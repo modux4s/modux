@@ -20,7 +20,6 @@ import sbt.{Compile, Def, _}
 
 object ModuxPlugin extends AutoPlugin {
 
-
   private final val CONFIG_DIR: String = "conf"
   private final val store: CacheStore = sbt.util.CacheStore(file("./target/streams/modux"))
 
@@ -119,7 +118,7 @@ object ModuxPlugin extends AutoPlugin {
     val (persisted, deps) = depsClasspath.map(_.data).partition(x => x.getAbsolutePath.contains("modux"))
 
     val settings: util.Map[String, String] = new java.util.HashMap[String, String]
-    settings.put("appName", moduxAppName.value)
+    settings.put("appName", name.value)
     settings.put("env", "develop")
     settings.put("host", moduxHost.value)
     settings.put("port", moduxPort.value.toString)
@@ -129,8 +128,9 @@ object ModuxPlugin extends AutoPlugin {
     settings.put("project.version", version.value)
 
     contact.value.foreach(x => settings.put("project.contact", x))
-    licenseName.value.foreach(x => settings.put("project.license.name", x))
-    licenseUrl.value.foreach(x => settings.put("project.license.url", x))
+    val licencesValue: Seq[(String, URL)] = licenses.value
+    settings.put("project.license.name",   licencesValue.map(_._1).foldLeft(""){_ + _})
+    settings.put("project.license.url",   licencesValue.map(_._2.toString).foldLeft(""){_ + _})
 
     ServerReloader(
       servers.value,
@@ -152,19 +152,11 @@ object ModuxPlugin extends AutoPlugin {
       Def.task(gs)
     } else {
       Def.task {
-
-        PrintUtils.cyan(
-          """
-            #
-            #***************************************************
-            #      _______  _____  ______  _     _ _     _
-            #      |  |  | |     | |     \ |     |  \___/
-            #      |  |  | |_____| |_____/ |_____| _/   \_
-            #
-            #***************************************************
-            #""".stripMargin('#')
-        )
-
+        PrintUtils.cyan("""***************************************************""")
+        PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
+        PrintUtils.cyan("""      |  |  | |     | |     \ |     |  \___/       """)
+        PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
+        PrintUtils.cyan("""***************************************************""")
         ModuxState.update(InProgress(state.value, createServer.value))
       }
     }
@@ -196,7 +188,7 @@ object ModuxPlugin extends AutoPlugin {
     Def.task {
       writeMode("export")
       val data: String = exportTask.value.exporter(mode)
-      val file: File = baseDirectory.value / "api" / s"${moduxAppName.value}.$mode"
+      val file: File = target.value / "api" / s"${name.value}.$mode"
       IO.write(file, data)
     }.dependsOn(cleanReq)
   }
@@ -208,12 +200,9 @@ object ModuxPlugin extends AutoPlugin {
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     contact := None,
-    licenseName := None,
-    licenseUrl := None,
     servers := Nil,
     moduxPort := 9000,
     moduxHost := "localhost",
-    moduxAppName := name.value,
     moduxState := moduxStateImpl.value,
     moduxLogFile := "logback.xml",
     moduxExportYaml := saveExport("yaml").value,
@@ -236,7 +225,7 @@ object ModuxPlugin extends AutoPlugin {
       Seq(
         s"-Dmodux.host=${moduxHost.value}",
         s"-Dmodux.port=${moduxPort.value}",
-        s"-Dmodux.name=${moduxAppName.value}",
+        s"-Dmodux.name=${name.value}",
       )
     }.value
   )

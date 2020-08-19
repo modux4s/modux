@@ -8,40 +8,52 @@
     <meta name="description" content="Description">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <link rel="icon" type="image/png" sizes="96x96" href="_media/favicon.ico">
-    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/themes/vue.css">
-    <!-- <link rel="stylesheet" href="https://unpkg.com/docsify-themeable/dist/css/theme-simple-dark.css"> -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4.11.4/themes/dark.css">
     <style>
-    .cover-main img {
-        width: 165px;
-    }
+        .cover-main img {
+            width: 165px;
+        }
+
+         
+        .markdown-section strong {
+            color: var(--theme-color, #ea6f5a);
+            font-weight: 600;
+        }
+
+        body,
+        .sidebar,
+        .sidebar-toggle {
+            background: #1F2020;
+        }
+/*
+        .search input:focus {
+            box-shadow: 0 0 5px var(--theme-color, #ea6f5a);
+            border: 1px solid var(--theme-color, #ea6f5a);
+        } */
     </style>
 </head>
 
 <body>
     <div id="app"></div>
     <script>
-    window.$docsify = {
-        variablesFile: 'variables.json',
-        variablesFileType: 'json',
-        auto2top: true,
-        loadSidebar: true,
-        coverpage: true,
-         subMaxLevel: 4,
-        name: 'Modux',
-        search: {
-            noData: {
-                '/': 'No results!'
+        window.$docsify = {
+            variablesFile: 'variables.json',
+            variablesFileType: 'json',
+            auto2top: true,
+            coverpage: true,
+            subMaxLevel: 4,
+            name: 'Modux',
+            search: {
+                noData: {
+                    '/': 'No results!'
+                },
+                paths: 'auto',
+                placeholder: {
+                    '/': 'Search'
+                }
             },
-            paths: 'auto',
-            placeholder: {
-                '/': 'Search'
-            }
-        },
-        previousText: 'Previous',
-        nextText: 'Next',
-        crossChapter: true,
-        crossChapterText: true,
-    }
+           
+        }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/docsify@4.11.4/lib/docsify.js"></script>
     <script src="//unpkg.com/docsify-variables/dist/docsify-variables.min.js"></script>
@@ -49,6 +61,7 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/prismjs@1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="//unpkg.com/prismjs/components/prism-java.js"></script>
     <script src="//unpkg.com/prismjs/components/prism-scala.js"></script>
+    <script src="//unpkg.com/prismjs/components/prism-yaml.js"></script>
     <script src="//unpkg.com/docsify-pagination/dist/docsify-pagination.min.js"></script>
 </body>
 

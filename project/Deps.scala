@@ -2,8 +2,6 @@ import sbt._
 
 object Deps {
 
-
-
   //************** VERSIONS **************//
   private lazy val akkaVersion: String = "2.6.8"
   private lazy val akkaHTTPVersion: String = "10.2.0"
@@ -11,17 +9,17 @@ object Deps {
   private lazy val xbeanVersion: String = "4.16"
   private lazy val ansiInterpolatorVersion: String = "1.1.0"
   private lazy val self4jVersion: String = "1.7.25"
-  private lazy val jacksonVersion: String = "2.11.1"
+  private lazy val jacksonVersion: String = "2.11.2"
   private lazy val typeConfigVersion: String = "1.4.0"
   private lazy val logbackClassicVersion: String = "1.2.3"
   private lazy val kryoSerializationVersion: String = "1.1.5"
   private lazy val sbtNativePackagerVersion: String = "1.7.3"
   private lazy val aaltoXmlParserVersion: String = "1.2.2"
   private lazy val configScalaVersion: String = "1.0.3"
-  private lazy val macwireVersion: String = "2.3.6"
   private lazy val scalaTestVersion: String = "3.2.0"
   private lazy val swaggerVersion: String = "2.1.3"
-  private lazy val javaxrsVersion: String = "2.0.1"
+  private lazy val javaxrsVersion: String = "2.1.1"
+  private lazy  val woodstoxVersion: String = "6.2.1"
 
   //************** DI **************//
   lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
@@ -46,7 +44,9 @@ object Deps {
   lazy val jacksonDatatype = "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % jacksonVersion
   lazy val jacksonDatatypeJsr = "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % jacksonVersion
   lazy val jacksonYaml = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % jacksonVersion
+  lazy val jacksonXml = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % jacksonVersion
   lazy val aaltoXmlParser = "com.fasterxml" % "aalto-xml" % aaltoXmlParserVersion
+  lazy val woodstoxCore  =  "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
   //************** DOCUMENTATION **************//
   lazy val swaggerCore = "io.swagger.core.v3" % "swagger-core" % swaggerVersion
   lazy val swaggerModel = "io.swagger.core.v3" % "swagger-models" % swaggerVersion

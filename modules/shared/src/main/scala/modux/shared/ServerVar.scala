@@ -6,5 +6,8 @@ object ServerVar {
 
   import scala.collection.JavaConverters._
 
-  def apply(default: String, values: String*): ServerVar = new ServerVar(default, values.asJava)
+  def apply(default: String, values: String*): ServerVar = {
+
+    new ServerVar(default, (default +: values).distinct.asJava)
+  }
 }

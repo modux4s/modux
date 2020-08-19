@@ -6,6 +6,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import akka.util.ByteString
 import com.fasterxml.jackson.databind.{ObjectMapper, ObjectWriter}
+import com.fasterxml.jackson.dataformat.xml.util.DefaultXmlPrettyPrinter
 import modux.macros.serializer.codec.providers.api.CodecMixedProvider
 import modux.macros.serializer.streaming.XmlStreamSupport
 
@@ -19,8 +20,7 @@ final case class XmlCodecProvider(maxObjSize: Int = 8 * 1024) extends CodecMixed
   private lazy val contentTypeRange: ContentTypeRange = ContentTypeRange(mt)
   private lazy val stream: XmlStreamSupport = new XmlStreamSupport(maxObjSize)
 
-  private lazy val xmlMapper: ObjectMapper = CodecUtils.createXmlMapper()
-  private lazy val prettyPrinter: ObjectWriter = xmlMapper.writerWithDefaultPrettyPrinter
+  private val xmlMapper: ObjectMapper = CodecUtils.createXmlMapper()
 
   override def mediaType: MediaType = mt
 
@@ -42,6 +42,6 @@ final case class XmlCodecProvider(maxObjSize: Int = 8 * 1024) extends CodecMixed
   }
 
   override def toByteString[A](data: A)(implicit mf: Manifest[A], ec: ExecutionContext): Future[ByteString] = Future {
-    ByteString(prettyPrinter.writeValueAsString(data))
+    ByteString(xmlMapper.writeValueAsString(data))
   }
 }

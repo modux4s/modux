@@ -2,7 +2,7 @@ package modux.macros.serializer
 
 import akka.NotUsed
 import akka.http.scaladsl.common.EntityStreamingSupport
-import akka.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller, ToResponseMarshaller}
+import akka.http.scaladsl.marshalling._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller.UnsupportedContentTypeException
 import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, FromEntityUnmarshaller, FromRequestUnmarshaller, Unmarshaller}
@@ -19,12 +19,16 @@ trait SerializationSupport {
 
   private type TRM[T] = ToResponseMarshaller[T]
 
-  protected def websocketCodec[A, B]: WebSocketCodec[A, B] = macro JsonWebSocketCodecImpl.websocket[A, B]
+  protected def codecFor[A, B]: WebSocketCodec[A, B] = macro JsonWebSocketCodecImpl.websocket[A, B]
 
-  protected def codify[T](implicit mf: Manifest[T], codecRegistry: CodecRegistry = SerializationSupport.DefaultCodecRegistry): Codec[T] = new Codec[T] {
+  protected def codecFor[T](implicit codecRegistry: CodecRegistry = SerializationSupport.DefaultCodecRegistry, mf: Manifest[T]): Codec[T] = new Codec[T] {
     override def marshaller(implicit mf: Manifest[T]): ToEntityMarshaller[T] = asEntityMarshaller[T]
 
     override def unmarshaller(implicit mf: Manifest[T]): FromEntityUnmarshaller[T] = unmarshallerBuilder[T]
+  }
+
+  protected implicit def asToByteStringMarshaller[T](implicit mf: Manifest[T], codec: CodecRegistry = SerializationSupport.DefaultCodecRegistry): ToByteStringMarshaller[T] = {
+    Marshaller.oneOf(codec.entityProvider: _*)(_.toByteStringMarshaller[T])
   }
 
   protected implicit def toCodecRegistry(c: CodecProvider): CodecRegistry = codecRegistry(c)

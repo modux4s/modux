@@ -9,13 +9,13 @@ import akka.http.scaladsl.model.ws.Message
 //************** commands **************//
 sealed trait WSCommand
 
-case class PushMessage(message: Message) extends WSCommand
+final case class PushMessage(message: Message) extends WSCommand
 
-case class SendMessage[OUT](message: OUT) extends WSCommand
+final case class SendMessage[OUT](message: OUT) extends WSCommand
 
-case class CloseConnection(forced: Boolean, id: String) extends WSCommand
+final case class CloseConnection(forced: Boolean, id: String) extends WSCommand
 
-case class HandleOut(actorRef: CActorRef) extends WSCommand
+final case class HandleOut(actorRef: CActorRef) extends WSCommand
 
 final case class ConnectionRef[OUT] private(connectionID: String, actorRef: ActorRef[WSCommand]) {
   def id: String = connectionID

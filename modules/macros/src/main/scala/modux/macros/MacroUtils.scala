@@ -34,12 +34,11 @@ object MacroUtils {
 
     def parsePartialUrl(x: String): Seq[Path] = {
       x.split("/").map { x =>
-        val bool1: Boolean = x.startsWith("{")
-        val bool2: Boolean = x.endsWith("}")
+        val bool1: Boolean = x.startsWith(":")
 
-        if (bool1 && bool2) {
-          AsPathParam(x.substring(1, x.length - 1))
-        } else if (!bool1 && !bool2 && !(x.contains("{") || x.contains("}"))) {
+        if (bool1) {
+          AsPathParam(x.substring(1, x.length))
+        } else if (!bool1 && !x.contains(":")) {
           AsPath(x)
         } else {
           c.abort(c.enclosingPosition, s"Invalid path section: '$x'")

@@ -37,6 +37,7 @@ object AkkaUtils extends Directives {
             case Xml => entity.withContentType(ContentTypes.`text/xml(UTF-8)`)
             case TextPlain => entity.withContentType(ContentTypes.`text/plain(UTF-8)`)
             case Html => entity.withContentType(ContentTypes.`text/html(UTF-8)`)
+            case Custom(ct) => entity.withContentType(ct)
           }
         }
     }

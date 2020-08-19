@@ -6,6 +6,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.{BootstrapSetup, ActorSystem => Classic}
 import com.github.andyglow.config._
 import com.typesafe.config.{Config, ConfigFactory}
+import io.swagger.v3.core.util.{Json, ObjectMapperFactory, Yaml}
 import io.swagger.v3.jaxrs2.Reader
 import io.swagger.v3.oas.integration.SwaggerConfiguration
 import io.swagger.v3.oas.models._
@@ -63,7 +64,7 @@ object Exporter {
         .providers
         .flatMap { srv =>
 
-          srv.serviceDescriptor.servicesCall
+          srv.serviceDef.servicesCall
             .collect { case x: RestEntry => x }
             .flatMap { x =>
               x.instance match {
@@ -148,7 +149,7 @@ object Exporter {
                   entry._response.foreach { x =>
                     val apiResponse: ApiResponse = new ApiResponse
                     apiResponse.setDescription(x.description)
-                    val examplesMap: Map[String, String] = x.example.asMap
+                    val examplesMap: Map[String, String] = x._example.asMap
 
                     x.schema.foreach { media =>
                       val content: Content = new Content
@@ -167,9 +168,19 @@ object Exporter {
                     apiResponses.addApiResponse(x.code.toString, apiResponse)
                   }
 
-                  proxy.responseWith.foreach { responseSchema =>
+                  proxy.responseWith.foreach { schemaDescriptor =>
                     val apiResponse: ApiResponse = new ApiResponse
-                    apiResponse.set$ref(responseSchema.reference.get$ref())
+
+                    Option(schemaDescriptor.reference.get$ref()) match {
+                      case Some(ref) => apiResponse.set$ref(ref)
+                      case None =>
+
+                        val ctn: Content = new Content
+                        apiResponse.setContent(ctn)
+                        entry._response.flatMap(_.schema).flatMap(_.mediaTypes).foreach { mediaDesc =>
+                          ctn.addMediaType(mediaDesc, new MediaType().schema(schemaDescriptor.reference))
+                        }
+                    }
                     apiResponses.setDefault(apiResponse)
                   }
 
@@ -257,9 +268,9 @@ object Exporter {
 
       buildContext.get("export.mode") match {
         case "json" =>
-          CodecUtils.createJsonMapper().writerWithDefaultPrettyPrinter().writeValueAsString(swagger)
+          Json.pretty(swagger)
         case _ =>
-          CodecUtils.createYamlMapper().writeValueAsString(swagger)
+          Yaml.pretty(swagger)
       }
     }
 

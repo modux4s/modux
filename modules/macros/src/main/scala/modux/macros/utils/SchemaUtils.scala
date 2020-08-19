@@ -125,6 +125,26 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
     case None => c.abort(c.enclosingPosition, "Extract kind error")
   }
 
+  def extractArraySchema(tpe: c.universe.Type, store: mutable.Map[String, String] = mutable.Map.empty): String = {
+    val kind: Kind = iterator(tpe, store, Map.empty)
+    if (kind.primitive)
+      "None"
+    else {
+
+      kind.ref match {
+        case Some(value) =>
+          s"""
+             |{
+             |  import modux.model.exporter.SchemaDescriptor
+             |  import io.swagger.v3.oas.models.media._
+             |  import io.swagger.v3.oas.models.parameters._
+             |  Option(SchemaDescriptor(new ArraySchema().items($value), ${joiner(store.toMap)}))
+             |}
+             |""".stripMargin
+        case None => c.abort(c.enclosingPosition, "extractSchema: undefined ref")
+      }
+    }
+  }
   def extractSchema(tpe: c.universe.Type, store: mutable.Map[String, String] = mutable.Map.empty): String = {
 
     val kind: Kind = iterator(tpe, store, Map.empty)

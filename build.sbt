@@ -24,7 +24,7 @@ lazy val enablingPublishingSettings = Seq(
   // Bintray
   bintrayPackageLabels := Seq("scala", "sbt"),
   bintrayRepository := "maven",
-  bintrayVcsUrl :=  Option("https://github.com/joacovela16/modux"),
+  bintrayVcsUrl := Option("https://github.com/joacovela16/modux"),
   bintrayOrganization := Option("jsoft"),
 )
 
@@ -49,10 +49,13 @@ lazy val common = (project in file("./modules/common"))
       Deps.jacksonDatatypeJsr,
       Deps.jacksonDatatype,
       Deps.jacksonYaml,
+      Deps.jacksonXml,
       Deps.swaggerCore,
       Deps.swaggerModel,
       Deps.swaggerJaxrs2,
       Deps.javaxrs,
+      Deps.woodstoxCore,
+
     )
   )
 

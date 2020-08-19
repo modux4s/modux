@@ -14,7 +14,7 @@ import modux.core.api.ModuleX
 import modux.core.server.domain.Capture
 import modux.model.context.Context
 import modux.model.dsl.RestEntry
-import modux.model.{RestInstance, ServiceDescriptor}
+import modux.model.{RestInstance, ServiceDef}
 import modux.shared.PrintUtils
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -73,7 +73,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
     import com.github.andyglow.config._
     val routes: mutable.ArrayBuffer[Route] = mutable.ArrayBuffer.empty
     val modules: mutable.ArrayBuffer[ModuleX] = mutable.ArrayBuffer.empty
-    val specs: mutable.ArrayBuffer[ServiceDescriptor] = mutable.ArrayBuffer.empty
+    val specs: mutable.ArrayBuffer[ServiceDef] = mutable.ArrayBuffer.empty
 
     //************** VALS **************//
     lazy val maxFailure: Int = localConfig.get[Int]("modux.circuit-breaker.maxFailure")
@@ -100,15 +100,15 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
             PrintUtils.error(s"${x.getClass.getSimpleName} failing.")
           case _ =>
 
-            PrintUtils.info(s"$idxFinal. ${x.getClass.getSimpleName}")
+            PrintUtils.cyan(s"$idxFinal. ${x.getClass.getSimpleName}")
 
             x.providers.zipWithIndex.foreach { case (srv, idy) =>
 
-              val serviceSpec: ServiceDescriptor = srv.serviceDescriptor
+              val serviceSpec: ServiceDef = srv.serviceDef
 
               specs.append(serviceSpec)
 
-              PrintUtils.info(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK")
+              PrintUtils.cyan(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK!")
 
               val route: Route = {
                 import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
@@ -116,16 +116,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
                   serviceSpec.servicesCall.flatMap {
                     case x: RestEntry =>
                       x.instance match {
-                        case instance: RestInstance =>
-
-                          Option {
-                            if (x._useBreaker) {
-                              val cb: CircuitBreaker = CircuitBreaker(context.classicActorSystem.scheduler, maxFailure, callTimeout, resetTimeout)
-                              instance.withCircuitBreak(cb)
-                            } else {
-                              instance.route
-                            }
-                          }
+                        case instance: RestInstance => Option(instance.route(x._extensions))
                         case _ => None
                       }
                     case _ => None
@@ -152,11 +143,7 @@ object ModuxServer {
     s"""
        |
        |modux{
-       |  circuit-breaker{
-       |    maxFailure = 1
-       |    callTimeout = "10 s"
-       |    resetTimeout = "60 s"
-       |  }
+       |  modules = []
        |}
        |
        |akka {

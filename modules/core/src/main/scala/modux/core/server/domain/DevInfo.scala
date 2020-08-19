@@ -1,11 +1,11 @@
 package modux.core.server.domain
 
-import modux.model.ServiceDescriptor
+import modux.model.ServiceDef
 import modux.shared.PrintUtils
 
 object DevInfo {
 
-  def apply(descriptor: ServiceDescriptor): Unit = {
+  def apply(descriptor: ServiceDef): Unit = {
 
     val servicesCallSize: Int = descriptor.servicesCall.size
 
