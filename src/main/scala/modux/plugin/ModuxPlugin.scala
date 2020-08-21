@@ -2,7 +2,6 @@ package modux.plugin
 
 import java.nio.file.{Path => JPath}
 import java.util
-import java.util.concurrent.atomic.AtomicLong
 
 import com.typesafe.sbt.SbtNativePackager._
 import com.typesafe.sbt.packager.MappingsHelper._
@@ -15,8 +14,7 @@ import sbt.nio.Watch
 import sbt.plugins.JvmPlugin
 import sbt.util.CacheImplicits._
 import sbt.util.CacheStore
-import sbt.{Compile, Def, _}
-
+import sbt.{Compile, Def, ModuleID, _}
 
 object ModuxPlugin extends AutoPlugin {
 
@@ -128,9 +126,10 @@ object ModuxPlugin extends AutoPlugin {
     settings.put("project.version", version.value)
 
     contact.value.foreach(x => settings.put("project.contact", x))
-    val licencesValue: Seq[(String, URL)] = licenses.value
-    settings.put("project.license.name",   licencesValue.map(_._1).foldLeft(""){_ + _})
-    settings.put("project.license.url",   licencesValue.map(_._2.toString).foldLeft(""){_ + _})
+    licenses.value.headOption.foreach { case (str, url) =>
+      settings.put("project.license.name", str)
+      settings.put("project.license.url", url.toString)
+    }
 
     ServerReloader(
       servers.value,
@@ -207,9 +206,16 @@ object ModuxPlugin extends AutoPlugin {
     moduxLogFile := "logback.xml",
     moduxExportYaml := saveExport("yaml").value,
     moduxExportJson := saveExport("json").value,
+    moduxOpenAPIVersion := 3,
     mappings in Universal ++= directory(CONFIG_DIR),
     resolvers += Resolver.mavenLocal,
-    libraryDependencies ++= Seq(moduxCore),
+    libraryDependencies := Def.setting {
+      if (moduxOpenAPIVersion.value == 2) {
+        Seq(moduxServer, moduxOpenAPIV2)
+      } else {
+        Seq(moduxServer, moduxOpenAPIV3)
+      }
+    }.value,
     mainClass in Compile := Option("modux.core.server.ProdServer"),
     mainClass in(Compile, run) := Option("modux.core.server.DevServer"),
     run in Compile := runnerImpl.evaluated,

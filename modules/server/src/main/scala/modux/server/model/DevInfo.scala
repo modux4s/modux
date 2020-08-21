@@ -1,4 +1,4 @@
-package modux.core.server.domain
+package modux.server.model
 
 import modux.model.ServiceDef
 import modux.shared.PrintUtils

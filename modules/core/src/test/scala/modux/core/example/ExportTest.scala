@@ -1,6 +1,5 @@
 package modux.core.example
 
-import modux.core.exporter.Exporter
 import modux.shared.{BuildContext, ServerDecl, ServerVar}
 
 object ExportTest extends App {

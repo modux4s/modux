@@ -1,6 +1,6 @@
-package modux.core.server
+package modux.server
 
-import modux.core.server.service.ModuxServer
+import modux.server.service.ModuxServer
 
 import scala.io.StdIn
 

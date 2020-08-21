@@ -17,8 +17,9 @@ object Deps {
   private lazy val aaltoXmlParserVersion: String = "1.2.2"
   private lazy val configScalaVersion: String = "1.0.3"
   private lazy val scalaTestVersion: String = "3.2.0"
-  private lazy val swaggerVersion: String = "2.1.3"
-  private lazy val javaxrsVersion: String = "2.1.1"
+  private lazy val swaggerVersion3: String = "2.1.4"
+  private lazy val swaggerVersion2: String = "1.6.2"
+  private lazy val javaxrsVersion3: String = "2.1.1"
   private lazy  val woodstoxVersion: String = "6.2.1"
 
   //************** DI **************//
@@ -48,14 +49,18 @@ object Deps {
   lazy val aaltoXmlParser = "com.fasterxml" % "aalto-xml" % aaltoXmlParserVersion
   lazy val woodstoxCore  =  "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
   //************** DOCUMENTATION **************//
-  lazy val swaggerCore = "io.swagger.core.v3" % "swagger-core" % swaggerVersion
-  lazy val swaggerModel = "io.swagger.core.v3" % "swagger-models" % swaggerVersion
-  lazy val swaggerJaxrs2 = "io.swagger.core.v3" % "swagger-jaxrs2" % swaggerVersion
+  lazy val swaggerCore3 = "io.swagger.core.v3" % "swagger-core" % swaggerVersion3
+  lazy val swaggerModel3 = "io.swagger.core.v3" % "swagger-models" % swaggerVersion3
+  lazy val swaggerJaxrs3 = "io.swagger.core.v3" % "swagger-jaxrs2" % swaggerVersion3
+
+  lazy val swaggerCore2 = "io.swagger" % "swagger-core" % swaggerVersion2
+  lazy val swaggerModel2 = "io.swagger" % "swagger-models" % swaggerVersion2
+  lazy val swaggerJaxrs2 = "io.swagger" % "swagger-jaxrs" % swaggerVersion2
   //************** UTILS **************//
   lazy val ansiInterpolator = "org.backuity" %% "ansi-interpolator" % ansiInterpolatorVersion
   lazy val typeSafeConf = "com.typesafe" % "config" % typeConfigVersion
   lazy val configScala = "com.github.andyglow" %% "typesafe-config-scala" % configScalaVersion
-  lazy val javaxrs = "javax.ws.rs" % "javax.ws.rs-api" % javaxrsVersion
+  lazy val javaxrs = "javax.ws.rs" % "javax.ws.rs-api" % javaxrsVersion3
   //************** TESTING **************//
   lazy val scalactic = "org.scalactic" %% "scalactic" % scalaTestVersion
   lazy val scalatest = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"

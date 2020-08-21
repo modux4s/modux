@@ -28,35 +28,35 @@ lazy val enablingPublishingSettings = Seq(
   bintrayOrganization := Option("jsoft"),
 )
 
+lazy val akkaDeps = Seq(
+  libraryDependencies ++= Seq(
+    Deps.configScala,
+    Deps.typeSafeConf,
+    Deps.akkaHTTP,
+    Deps.akkaTypedActor,
+    Deps.akkaStream,
+    Deps.akkaCors,
+    Deps.akkaSharding,
+  )
+)
 
 lazy val common = (project in file("./modules/common"))
   .settings(
     name := "modux-common",
-
     enablingPublishingSettings,
+    akkaDeps,
     libraryDependencies ++= Seq(
-      Deps.configScala,
-      Deps.typeSafeConf,
       Deps.xbean,
-      Deps.akkaHTTP,
       Deps.kryoSerialization,
-      Deps.akkaTypedActor,
-      Deps.akkaStream,
-      Deps.akkaCors,
-      Deps.akkaSharding,
       Deps.scalaLogging,
       Deps.logbackClassic,
       Deps.jacksonDatatypeJsr,
       Deps.jacksonDatatype,
       Deps.jacksonYaml,
       Deps.jacksonXml,
-      Deps.swaggerCore,
-      Deps.swaggerModel,
-      Deps.swaggerJaxrs2,
-      Deps.javaxrs,
       Deps.woodstoxCore,
+    ),
 
-    )
   )
 
 lazy val model = (project in file("./modules/model"))
@@ -64,10 +64,38 @@ lazy val model = (project in file("./modules/model"))
   .dependsOn(common)
   .settings(
     name := "modux-model",
-    enablingPublishingSettings,
-
+    enablingPublishingSettings
   )
 
+
+lazy val swaggerExportV3 = (project in file("./modules/export/swagger3"))
+  .aggregate(devShared, core)
+  .dependsOn(devShared, core)
+  .settings(
+    name := "modux-swagger-v3",
+    enablingPublishingSettings,
+    akkaDeps,
+    libraryDependencies ++= Seq(
+      Deps.swaggerCore3,
+      Deps.swaggerModel3,
+      Deps.swaggerJaxrs3,
+      Deps.javaxrs,
+    )
+  )
+
+lazy val swaggerExportV2 = (project in file("./modules/export/swagger2"))
+  .aggregate(devShared, core)
+  .dependsOn(devShared, core)
+  .settings(
+    name := "modux-swagger-v2",
+    enablingPublishingSettings,
+    akkaDeps,
+    libraryDependencies ++= Seq(
+      Deps.swaggerCore2,
+      Deps.swaggerModel2,
+      Deps.swaggerJaxrs2
+    )
+  )
 
 lazy val devShared = (project in file("./modules/shared"))
   .settings(
@@ -98,9 +126,17 @@ lazy val core = (project in file("./modules/core"))
     libraryDependencies ++= Seq()
   )
 
+lazy val server = (project in file("./modules/server"))
+  .aggregate(core)
+  .dependsOn(core)
+  .settings(
+    name:= "modux-server",
+    enablingPublishingSettings,
+  )
+
 lazy val root = (project in file("./"))
-  .aggregate(core, devShared)
-  .dependsOn(core, devShared)
+  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2)
+  .dependsOn(server, devShared)
   .settings(
     sbtPlugin := true,
     name := "modux-plugin",

@@ -1,11 +1,11 @@
-package modux.core.server
+package modux.server
 
 import java.io.File
 
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
-import modux.core.exporter.Exporter
-import modux.core.server.service.ModuxServer
+import modux.server.model.Types.ExporterResolver
+import modux.server.service.ModuxServer
 import modux.shared.BuildContext
 import org.slf4j.LoggerFactory
 import org.slf4j.helpers.SubstituteLoggerFactory
@@ -32,7 +32,9 @@ private[modux] object DevServer {
    * Exports api to format json or yaml
    */
   def exporter(buildContext: BuildContext): String = {
-    Exporter.processor(buildContext)
+    val m: Class[_] = buildContext.appClassloader.loadClass("modux.exporting.swagger.Exporter$")
+    val exporter: ExporterResolver = m.getField("MODULE$").get(null).asInstanceOf[ExporterResolver]
+    exporter.processor(buildContext)
   }
 
   private def resetLogger(buildContext: BuildContext): Boolean = {

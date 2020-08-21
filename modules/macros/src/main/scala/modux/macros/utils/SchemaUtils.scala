@@ -20,104 +20,95 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
   import c.universe._
 
 
-  def joiner(m: Map[String, String]): String = m.map { case (k, v) => s"${k.qt} -> $v" }.mkString("Map[String, Schema[_]](", ",", ")")
+  def joiner(m: Map[String, String]): String = m.map { case (k, v) => s"${k.qt} -> $v" }.mkString("Map[String, MSchema](", ",", ")")
 
-  def schemaDefiner(kind: String, xs: Seq[(String, Seq[String])]): String = {
-    val calls: String = xs.map { case (met, args) => s"s.$met(${args.mkString(",")})" }.mkString("\n")
+  private def strOpt(d: Option[String]): String = d match {
+    case Some(value) => s"""Option("$value")"""
+    case None => "None"
+  }
 
-    val instancer: String = kind match {
-      case "String" => "val s = new StringSchema"
-      case "Boolean" => "val s = new BooleanSchema"
-      case _ => s"val s:Schema[$kind] = new Schema()"
-    }
+
+  def matOpt(d: Option[String]): String = d match {
+    case Some(value) => s"Option($value)"
+    case None => "None"
+  }
+
+  def schema(kind: String, isPrimitive: Boolean, isNullable: Boolean, format: Option[String], example: Option[String], properties: Seq[(String, String)] = Nil): String = {
 
     s"""
-       |{
-       |  $instancer
-       |  $calls
-       |  s
-       |}
+       |MPrimitiveSchema(
+       |  kind = "$kind",
+       |  isPrimitive = $isPrimitive,
+       |  isNullable = $isNullable,
+       |  format = ${strOpt(format)},
+       |  example = ${strOpt(example)},
+       |  properties = Map(${properties.map { case (x, y) => s"${x.qt} -> $y" }.mkString(",")})
+       |)
        |""".stripMargin
   }
 
-  def schema(kind: String, tpe: String, xs: Seq[(String, Seq[String])] = Nil): String = schemaDefiner(kind, ("setType", Seq(tpe.qt)) +: xs)
-
   def buildFlags(m: Map[String, String]): Seq[(String, Seq[String])] = m.filter { case (_, v) => v == "true" }.map { case (k, v) => (k, Seq(v)) }.toSeq
 
-  def callSchemaExtractor(tpe: c.universe.Type, store: mutable.Map[String, String] = mutable.Map.empty): Kind = iterator(tpe, store, Map.empty)
+  def callSchemaExtractor(tpe: c.universe.Type, store: mutable.Map[String, String] = mutable.Map.empty): Kind = iterator(tpe, store, false, false)
 
-  def primitiveSchema(tpe: c.universe.Type, flags: Map[String, String]): Option[String] = {
+  def primitiveSchema(tpe: c.universe.Type, isRequired: Boolean = false, isNullable: Boolean = false): Option[String] = {
 
     lazy val currentTime: Long = System.currentTimeMillis()
 
     if (tpe =:= typeOf[String]) {
-      schema("String", "string", buildFlags(flags))
+      schema("string", true, isNullable, None, None)
     } else if (tpe =:= typeOf[Int] || tpe =:= typeOf[Short]) {
-      schema("Int", "integer", ("setFormat", Seq("int32".qt)) +: buildFlags(flags))
+      schema("integer", true, isNullable, "int32", None)
     } else if (tpe =:= typeOf[Byte]) {
-      schema("Byte", "byte", buildFlags(flags))
+      schema("byte", true, isNullable, None, None)
     } else if (tpe =:= typeOf[Long]) {
-      schema("Long", "integer", ("setFormat", Seq("int64".qt)) +: buildFlags(flags))
+      schema("integer", true, isNullable, "int64", None)
     } else if (tpe =:= typeOf[Float]) {
-      schema("Float", "number", ("setFormat", Seq("float".qt)) +: buildFlags(flags))
+      schema("number", true, isNullable, "float", None)
     } else if (tpe =:= typeOf[Double]) {
-      schema("Double", "number", ("setFormat", Seq("double".qt)) +: buildFlags(flags))
+      schema("number", true, isNullable, "double", None)
     } else if (tpe =:= typeOf[Boolean]) {
-      schema("Boolean", "boolean", buildFlags(flags))
+      schema("boolean", true, isNullable, None, None)
     } else if (tpe =:= typeOf[Date]) {
-      schema("String", "string", ("setExample", Seq(new Date().toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, new Date().toString)
     } else if (tpe =:= typeOf[SQLDate]) {
-      schema("String", "string", ("setExample", Seq(new SQLDate(currentTime).toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, new SQLDate(currentTime).toString)
     } else if (tpe =:= typeOf[Timestamp]) {
-      schema("String", "string", ("setExample", Seq(new Timestamp(currentTime).toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, new Timestamp(currentTime).toString)
     } else if (tpe =:= typeOf[Instant]) {
-      schema("String", "string", ("setExample", Seq(Instant.now().toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, Instant.now().toString)
     } else if (tpe =:= typeOf[LocalDateTime]) {
-      schema("String", "string", ("setExample", Seq(LocalDateTime.now().toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, LocalDateTime.now().toString)
     } else if (tpe =:= typeOf[LocalDate]) {
-      schema("String", "string", ("setExample", Seq(LocalDate.now().toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, LocalDate.now().toString)
     } else if (tpe =:= typeOf[Time]) {
-      schema("String", "string", ("setExample", Seq(new Time(currentTime).toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, new Time(currentTime).toString)
     } else if (tpe =:= typeOf[LocalTime]) {
-      schema("String", "string", ("setExample", Seq(LocalTime.now().toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, LocalTime.now().toString)
     } else if (tpe =:= typeOf[ZonedDateTime]) {
-      schema("String", "string", ("setExample", Seq(ZonedDateTime.now().toString.qt)) +: buildFlags(flags))
+      schema("string", true, isNullable, None, ZonedDateTime.now().toString)
     } else if (tpe <:< typeOf[Option[_]] || tpe <:< typeOf[java.util.Optional[_]]) {
       val argTpe: c.universe.Type = tpe.typeArgs.head
-      primitiveSchema(argTpe, Map("setNullable" -> "true"))
+      primitiveSchema(argTpe, isRequired, true)
     } else if (tpe <:< typeOf[Traversable[_]] || tpe <:< typeOf[java.lang.Iterable[_]]) {
+
       val argTpe: c.universe.Type = tpe.typeArgs.head
-      primitiveSchema(argTpe, Map.empty).map { schemaArg =>
-        s"""
-           |{
-           |  val s = new ArraySchema()
-           |  s.setItems($schemaArg)
-           |  s
-           |}
-           |""".stripMargin
-      }
+
+      primitiveSchema(argTpe, isRequired, isNullable)//.map(schemaArg => s"MArraySchema($schemaArg)")
     } else {
       None
     }
   }
 
-  def getRef(tpe: String, asNullable: Boolean): String = {
-    val nullable: String = if (asNullable) "s.setNullable(true)" else ""
-    s"""
-       |{
-       |  val s = new ObjectSchema
-       |  $nullable
-       |  s.set$$ref("$tpe")
-       |  s
-       |}
-       |""".stripMargin
+  def getRef(tpe: String, isNullable: Boolean): String = {
+    s"MRefSchema(${tpe.qt}, $isNullable)"
   }
 
   def adjustName(tpe: String): String = {
     val idx: Int = tpe.lastIndexOf(".")
 
     if (idx == -1) tpe
-    else tpe.substring(idx+1, tpe.length)
+    else tpe.substring(idx + 1, tpe.length)
   }
 
   private def extract(kind: Kind): String = kind.one match {
@@ -126,7 +117,7 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
   }
 
   def extractArraySchema(tpe: c.universe.Type, store: mutable.Map[String, String] = mutable.Map.empty): String = {
-    val kind: Kind = iterator(tpe, store, Map.empty)
+    val kind: Kind = iterator(tpe, store, false, false)
     if (kind.primitive)
       "None"
     else {
@@ -136,18 +127,18 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
           s"""
              |{
              |  import modux.model.exporter.SchemaDescriptor
-             |  import io.swagger.v3.oas.models.media._
-             |  import io.swagger.v3.oas.models.parameters._
-             |  Option(SchemaDescriptor(new ArraySchema().items($value), ${joiner(store.toMap)}))
+             |  Option(SchemaDescriptor(MArraySchema($value), ${joiner(store.toMap)}))
              |}
              |""".stripMargin
         case None => c.abort(c.enclosingPosition, "extractSchema: undefined ref")
       }
     }
   }
+
   def extractSchema(tpe: c.universe.Type, store: mutable.Map[String, String] = mutable.Map.empty): String = {
 
-    val kind: Kind = iterator(tpe, store, Map.empty)
+    val kind: Kind = iterator(tpe, store, false, false)
+
     if (kind.primitive)
       "None"
     else {
@@ -157,8 +148,7 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
           s"""
              |{
              |  import modux.model.exporter.SchemaDescriptor
-             |  import io.swagger.v3.oas.models.media._
-             |  import io.swagger.v3.oas.models.parameters._
+             |  import modux.model.schema.{MParameter, MSchema, MRefSchema, MPrimitiveSchema, MArraySchema, MComposed}
              |  Option(SchemaDescriptor($value, ${joiner(store.toMap)}))
              |}
              |""".stripMargin
@@ -167,39 +157,33 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
     }
   }
 
-  def iterator(tpe: c.universe.Type, store: mutable.Map[String, String], flags: Map[String, String]): Kind = {
+  def iterator(tpe: c.universe.Type, store: mutable.Map[String, String], isRequired: Boolean, isNullable: Boolean): Kind = {
 
-    def routine(tpe: c.universe.Type, store: mutable.Map[String, String], flags: Map[String, String]): Kind = {
+    def routine(tpe: c.universe.Type, store: mutable.Map[String, String], isRequired: Boolean, isNullable: Boolean): Kind = {
       val tps: c.universe.Symbol = tpe.typeSymbol
       val key: String = adjustName(tps.fullName)
 
       if (store.contains(key)) {
-        val str: String = getRef(key, flags.get("setNullable").contains("true"))
+        val str: String = getRef(key, isNullable)
         Kind(primitive = false, str, None)
       } else {
 
-        primitiveSchema(tpe, flags) match {
+        primitiveSchema(tpe, isRequired, isNullable) match {
           case Some(primitiveVal) => Kind(primitive = true, None, primitiveVal)
           case None =>
 
             if (tpe <:< typeOf[Option[_]] || tpe <:< typeOf[java.util.Optional[_]]) {
+
               val argTpe: c.universe.Type = tpe.typeArgs.head
-              routine(argTpe, store, Map("setNullable" -> "true"))
+              routine(argTpe, store, isRequired, true)
             } else if (tpe <:< typeOf[Traversable[_]] || tpe <:< typeOf[java.lang.Iterable[_]]) {
 
               val argTpe: c.universe.Type = tpe.typeArgs.head
-              val parameterKind: Kind = routine(argTpe, store, Map.empty)
-              val result: String =
-                s"""
-                   |{
-                   |  val s = new ArraySchema()
-                   |  s.setItems(${extract(parameterKind)})
-                   |  s
-                   |}
-                   |""".stripMargin
-              Kind(primitive = true, None, result)
+              val parameterKind: Kind = routine(argTpe, store, false, false)
+
+              Kind(primitive = true, None, s"MArraySchema(${extract(parameterKind)})")
             } else if (tpe <:< typeOf[Map[_, _]] || tpe <:< typeOf[mutable.Map[_, _]] || tpe <:< typeOf[java.util.Map[_, _]]) {
-              Kind(primitive = true, None, "new MapSchema()")
+              Kind(primitive = true, None, "MPrimitiveSchema(\"object\", false, false, None, None, Map())")
             } else {
 
               if (tps.isJava) {
@@ -216,7 +200,7 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
                     acc + (name -> x)
                   }
 
-                val m: List[Seq[String]] = mapper
+                val m: List[(String, String)] = mapper
                   .map { case (k, _) => if (k.startsWith("set")) k.replaceFirst("set", "") else k.replaceFirst("get", "") }
                   .toSet.toList
                   .filter { x =>
@@ -237,22 +221,18 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
 
                     store.get(signatureStr) match {
                       case None =>
-                        val kind: Kind = routine(sig, store, Map.empty)
+                        val kind: Kind = routine(sig, store, false, false)
 
                         kind.ref.orElse(kind.schema) match {
-                          case Some(y) => Seq(finalName.qt, y)
+                          case Some(y) => finalName -> y
                           case None => c.abort(c.enclosingPosition, "Invalid ref")
                         }
 
-                      case _ => Seq(finalName.qt, getRef(signatureStr, asNullable = false))
+                      case _ => finalName -> getRef(signatureStr, false)
                     }
                   }
 
-                val result: String = schema(
-                  tps.fullName,
-                  "object",
-                  m.map(x => ("addProperties", x))
-                )
+                val result: String = schema("object", false, isNullable, None, None, m)
 
                 store.put(key, result)
                 Kind(primitive = false, getRef(key, false), result)
@@ -262,24 +242,14 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
                 if (tpc.isTrait) {
 
                   val knownDirectSubclasses: Set[c.universe.Symbol] = tpc.knownDirectSubclasses
-                  val xs: Set[String] = knownDirectSubclasses.map(x => getRef(adjustName(x.fullName), asNullable = false))
-
-                  val result: String =
-                    s"""
-                       |{
-                       |  val s = new ComposedSchema
-                       |  val xs = new java.util.ArrayList[Schema[_]]()
-                       |  ${xs.map(x => s"xs.add($x)").mkString("\n")}
-                       |  s.setOneOf(xs)
-                       |  s
-                       |}
-                       |""".stripMargin
+                  val xs: Set[String] = knownDirectSubclasses.map(x => getRef(adjustName(x.fullName), false))
+                  val result: String = s"MComposed(Seq(${xs.mkString(",")}))"
 
                   store.put(key, result)
 
                   knownDirectSubclasses.foreach { x =>
                     val typeSignature: c.universe.Type = x.typeSignature
-                    routine(typeSignature, store, Map.empty)
+                    routine(typeSignature, store, false, false)
                   }
 
                   Kind(primitive = false, getRef(key, false), result)
@@ -287,29 +257,25 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
 
                   val constructor: Option[c.universe.Symbol] = tpe.decls.find(_.isConstructor)
                   val params: List[c.universe.Symbol] = constructor.map(x => x.typeSignature).map(_.paramLists.flatten).getOrElse(Nil)
-                  val argsParam: List[Seq[String]] = params.map { x =>
+                  val argsParam: List[(String, String)] = params.map { x =>
 
                     val sig: c.universe.Type = x.typeSignature
                     val signatureStr: String = adjustName(sig)
                     store.get(signatureStr) match {
                       case None =>
 
-                        val kind: Kind = routine(sig, store, Map.empty)
+                        val kind: Kind = routine(sig, store, false, false)
                         kind.one match {
-                          case Some(y) => Seq(x.name.toString.qt, y)
+                          case Some(y) => x.name.toString -> y
                           case None => c.abort(c.enclosingPosition, "Kind error")
                         }
 
 
-                      case _ => Seq(x.name.toString.qt, getRef(signatureStr, asNullable = false))
+                      case _ => x.name.toString -> getRef(signatureStr, false)
                     }
                   }
 
-                  val result: String = schema(
-                    tpc.fullName,
-                    "object",
-                    argsParam.map(x => ("addProperties", x))
-                  )
+                  val result: String = schema("object", false, isNullable, None, None, argsParam)
 
                   store.put(key, result)
 
@@ -323,7 +289,7 @@ class SchemaUtils[C <: blackbox.Context with Singleton](val c: C) {
       }
     }
 
-    routine(tpe, store, flags)
+    routine(tpe, store, isRequired, isNullable)
   }
 }
 

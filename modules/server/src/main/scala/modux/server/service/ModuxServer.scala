@@ -1,4 +1,4 @@
-package modux.core.server.service
+package modux.server.service
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -11,10 +11,11 @@ import akka.http.scaladsl.server.{Directives, Route}
 import akka.pattern.CircuitBreaker
 import com.typesafe.config.{Config, ConfigFactory}
 import modux.core.api.ModuleX
-import modux.core.server.domain.Capture
 import modux.model.context.Context
 import modux.model.dsl.RestEntry
 import modux.model.{RestInstance, ServiceDef}
+import modux.server.model
+import modux.server.model.Capture
 import modux.shared.PrintUtils
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -134,7 +135,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
         }
       }
 
-    Capture(Directives.concat(routes: _*), modules, specs)
+    model.Capture(Directives.concat(routes: _*), modules, specs)
   }
 }
 

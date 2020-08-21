@@ -1,4 +1,4 @@
-package modux.core.server.service
+package modux.server.service
 
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model.headers._

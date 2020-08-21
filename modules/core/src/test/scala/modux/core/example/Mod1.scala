@@ -29,7 +29,7 @@ case class UserService(context: Context) extends Service with SerializationSuppo
 
   override def serviceDef: ServiceDef = {
 
-    namedAs("user")
+    namedAs("useer")
       .withCalls(
         get("/user/:id?location&year", getUser _)
           summary "Obtains a user record using location and year"
@@ -38,8 +38,9 @@ case class UserService(context: Context) extends Service with SerializationSuppo
           describe queryParam("year") as "a year" withExamples "y1" -> "2020"
           returns(
           200 -> "User created" represented by[User] withExample User("Frank"),
-          400 -> "User is not found" represented by[ErrorReport] withExample ErrorReport("Not founded")
+//          400 -> "User is not found" represented by[ErrorReport] withExample ErrorReport("Not founded")
         ),
+/*
         post("/user", postUser _)
           summary "creates a user"
           expects instanceOf[User]
@@ -47,6 +48,7 @@ case class UserService(context: Context) extends Service with SerializationSuppo
           200 -> "Creates a user",
           500 -> "Internal error" represented by[ErrorReport]
         )
+*/
       )
   }
 }

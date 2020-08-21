@@ -6,12 +6,10 @@ import akka.util.ByteString
 import modux.macros.MacroUtils._
 import modux.macros.utils.SchemaUtils
 import modux.model._
-import modux.model.dsl.RestEntryExtension
-import modux.model.exporter.{EvidenceDescriptor, SchemaDescriptor}
+import modux.model.exporter.SchemaDescriptor
 import modux.model.ws.WSEvent
 
 import scala.collection.mutable
-import scala.concurrent.Future
 import scala.reflect.macros.blackbox
 import scala.util.{Failure, Success, Try => stry}
 
@@ -429,32 +427,16 @@ object ServiceSupportMacro {
 
       val name: String = x.name.toString
       val tpe: c.universe.Type = x.tpt.tpe
-
-      val schema: String = schemaUtil.primitiveSchema(tpe, Map.empty).fold("")(x => s"qp.setSchema($x)")
-
-      s"""
-         |{
-         |  val qp:QueryParameter = new QueryParameter
-         |  qp.setName("$name")
-         |  $schema
-         |  qp
-         |}
-         |""".stripMargin
+      val schema: Option[String] = schemaUtil.primitiveSchema(tpe)
+      s"""MParameter("$name", "query", true, ${schemaUtil.matOpt(schema)})"""
     }.mkString("Seq(", ",", ")")
 
     val pathParamInf: String = parsedPath.pathParams.collect { case x: AsPathParam => x }.flatMap(x => argsMap.get(x.name)).map { x =>
       val name: String = x.name.toString
       val tpe: c.universe.Type = x.tpt.tpe
 
-      val schema: String = schemaUtil.primitiveSchema(tpe, Map.empty).fold("")(x => s"pp.setSchema($x)")
-      s"""
-         |{
-         |  val pp:PathParameter = new PathParameter
-         |  pp.setName("$name")
-         |  $schema
-         |  pp
-         |}
-         |""".stripMargin
+      val schema: Option[String] = schemaUtil.primitiveSchema(tpe)
+      s"""MParameter("$name", "path", true, ${schemaUtil.matOpt(schema)})"""
     }.mkString("Seq(", ",", ")")
 
     val storeRef: mutable.Map[String, String] = mutable.Map.empty
@@ -466,7 +448,7 @@ object ServiceSupportMacro {
         val head: c.universe.Type = requestType.typeArgs.head
         schemaUtil.extractArraySchema(head, storeRef)
       } else {
-        val _ = schemaUtil.iterator(requestType, storeRef, Map.empty)
+        val _ = schemaUtil.iterator(requestType, storeRef, false, false)
         schemaUtil.extractSchema(requestType, storeRef)
       }
     }
@@ -478,25 +460,40 @@ object ServiceSupportMacro {
         val head: c.universe.Type = responseType.typeArgs.head
         schemaUtil.extractArraySchema(head, storeRef)
       } else {
-        val _ = schemaUtil.iterator(responseType, storeRef, Map.empty)
+        val _ = schemaUtil.iterator(responseType, storeRef, false, false)
         schemaUtil.extractSchema(responseType, storeRef)
       }
     }
 
     val joinedSchemas: String = schemaUtil.joiner(storeRef.toMap)
+    /*
+        s"""
+           |new modux.model.RestProxy {
+           |
+           |  import modux.model.exporter.SchemaDescriptor
+           |  import modux.model.schema.{MParameter, WSchema, MPrimitiveSchema, MArraySchema}
+           |
+           |  override def ignore: Boolean = $isWebSocket
+           |  override def pathParameter: Seq[MParameter] = $pathParamInf
+           |  override def queryParameter: Seq[MParameter] = $queryParamInf
+           |  override def schemas: Map[String, WSchema] = $joinedSchemas
+           |  override def path: String = "${normalizePath(urlValue)}"
+           |  override def method: String = "$method"
+           |  override def requestWith: Option[SchemaDescriptor] = $requestMat
+           |  override def responseWith: Option[SchemaDescriptor] = $responseMat
+           |}
+           |""".stripMargin*/
 
     s"""
        |new modux.model.RestProxy {
        |
-       |  import io.swagger.v3.oas.models.media._
-       |  import io.swagger.v3.oas.models.parameters._
        |  import modux.model.exporter.SchemaDescriptor
-       |  import modux.model.exporter.EvidenceDescriptor
+       |  import modux.model.schema.{MParameter, MSchema, MRefSchema, MPrimitiveSchema, MArraySchema, MComposed}
        |
        |  override def ignore: Boolean = $isWebSocket
-       |  override def pathParameter: Seq[Parameter] = $pathParamInf
-       |  override def queryParameter: Seq[Parameter] = $queryParamInf
-       |  override def schemas: Map[String, Schema[_]] = $joinedSchemas
+       |  override def pathParameter: Seq[MParameter] = $pathParamInf
+       |  override def queryParameter: Seq[MParameter] = $queryParamInf
+       |  override def schemas: Map[String, MSchema] = $joinedSchemas
        |  override def path: String = "${normalizePath(urlValue)}"
        |  override def method: String = "$method"
        |  override def requestWith: Option[SchemaDescriptor] = $requestMat

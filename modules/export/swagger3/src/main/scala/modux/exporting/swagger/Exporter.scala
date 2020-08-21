@@ -1,30 +1,30 @@
-package modux.core.exporter
-
-import java.util
+package modux.exporting.swagger
 
 import akka.actor.typed.ActorSystem
-import akka.actor.{BootstrapSetup, ActorSystem => Classic}
-import com.github.andyglow.config._
 import com.typesafe.config.{Config, ConfigFactory}
-import io.swagger.v3.core.util.{Json, ObjectMapperFactory, Yaml}
+import modux.model.context.Context
+import modux.shared.BuildContext
+import akka.actor.{BootstrapSetup, ActorSystem => Classic}
+import akka.actor.typed.scaladsl.adapter._
+import com.github.andyglow.config._
+import io.swagger.v3.core.util.{Json, Yaml}
 import io.swagger.v3.jaxrs2.Reader
 import io.swagger.v3.oas.integration.SwaggerConfiguration
-import io.swagger.v3.oas.models._
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.info.{Info, License}
 import io.swagger.v3.oas.models.media.{Content, MediaType, Schema, StringSchema}
 import io.swagger.v3.oas.models.parameters.{CookieParameter, HeaderParameter, Parameter, RequestBody}
 import io.swagger.v3.oas.models.responses.{ApiResponse, ApiResponses}
 import io.swagger.v3.oas.models.servers.{Server, ServerVariable, ServerVariables}
+import io.swagger.v3.oas.models.{Components, OpenAPI, Operation, PathItem, Paths}
 import modux.core.api.ModuleX
-import modux.macros.serializer.codec.providers.impl.CodecUtils
 import modux.model.RestProxy
-import modux.model.context.Context
 import modux.model.dsl.{CookieKind, HeaderKind, ParamDescriptor, RestEntry}
 import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
-import modux.shared.BuildContext
+import modux.model.schema.MSchema
 
 import scala.concurrent.ExecutionContext
+import scala.jdk.CollectionConverters._
 
 object Exporter {
 
@@ -36,8 +36,6 @@ object Exporter {
 
       new Context {
 
-        import akka.actor.typed.scaladsl.adapter._
-
         private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
         override val actorSystem: ActorSystem[Nothing] = classic.toTyped
         override val config: Config = localConfig
@@ -47,17 +45,22 @@ object Exporter {
 
     def extractModules(buildContext: BuildContext, context: Context): Seq[ModuleX] = {
 
-      context.config
+      context
+        .config
         .get[List[String]]("modux.modules")
         .map(x => buildContext.appClassloader.loadClass(x))
         .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
     }
 
     def processModule(moduleX: ModuleX, paths: Paths, components: Components): Paths = {
+
       import scala.collection.JavaConverters._
 
-      def add(components: Components, map: Map[String, Schema[_]]): Unit = {
-        map.foreach { case (k, v) => components.addSchemas(k, v) }
+      def add(components: Components, map: Map[String, MSchema]): Unit = {
+        map.foreach { case (k, v) =>
+          val value: Schema[_] = VersionAdapter3(v)
+          components.addSchemas(k, value)
+        }
       }
 
       moduleX
@@ -98,7 +101,7 @@ object Exporter {
                       headerParam
                   }
 
-                  val params: Seq[Parameter] = (proxy.pathParameter ++ proxy.queryParameter ++ cookieAndHeaderParams)
+                  val params: Seq[Parameter] = ( VersionAdapter3(proxy.pathParameter) ++ VersionAdapter3(proxy.queryParameter) ++ cookieAndHeaderParams)
                     .map { p =>
                       paramDesMap.get(p.getName).fold(p) { x =>
                         x._examples.foreach { case (k, v) =>
@@ -111,7 +114,7 @@ object Exporter {
                       }
                     }
 
-                  val ls: util.List[Parameter] = new util.ArrayList[Parameter]()
+                  val ls: java.util.List[Parameter] = new java.util.ArrayList[Parameter]()
                   ls.addAll(params.asJavaCollection)
 
                   if (!ls.isEmpty) {
@@ -127,7 +130,7 @@ object Exporter {
 
                     val mt: MediaTypeDescriptor = requestDescriptor.mediaType
                     val schemaDescriptor: SchemaDescriptor = mt.schemaDescriptor
-                    val s: Schema[_] = schemaDescriptor.reference
+                    val s: Schema[_] = VersionAdapter3(schemaDescriptor.reference)
 
                     mt.mediaTypes.foreach { x =>
                       val mediaType: MediaType = new MediaType
@@ -141,8 +144,6 @@ object Exporter {
                   }
 
                   //************** response **************//
-
-
                   val apiResponses: ApiResponses = new ApiResponses
                   operation.setResponses(apiResponses)
 
@@ -156,7 +157,8 @@ object Exporter {
 
                       media.mediaTypes.foreach { z =>
                         val mt: MediaType = new MediaType
-                        mt.setSchema(media.schemaDescriptor.reference)
+//                        mt.setSchema(VersionAdapter(media.schemaDescriptor.reference))
+                        mt.setSchema( proxy.responseWith.map(z=> VersionAdapter3(z.reference)).getOrElse(VersionAdapter3(media.schemaDescriptor.reference)) )
                         examplesMap.get(z).foreach(mt.setExample(_))
                         content.addMediaType(z, mt)
                       }
@@ -166,22 +168,6 @@ object Exporter {
                     }
 
                     apiResponses.addApiResponse(x.code.toString, apiResponse)
-                  }
-
-                  proxy.responseWith.foreach { schemaDescriptor =>
-                    val apiResponse: ApiResponse = new ApiResponse
-
-                    Option(schemaDescriptor.reference.get$ref()) match {
-                      case Some(ref) => apiResponse.set$ref(ref)
-                      case None =>
-
-                        val ctn: Content = new Content
-                        apiResponse.setContent(ctn)
-                        entry._response.flatMap(_.schema).flatMap(_.mediaTypes).foreach { mediaDesc =>
-                          ctn.addMediaType(mediaDesc, new MediaType().schema(schemaDescriptor.reference))
-                        }
-                    }
-                    apiResponses.setDefault(apiResponse)
                   }
 
                   add(components, proxy.schemas)
@@ -202,6 +188,8 @@ object Exporter {
         .foldLeft(paths) { case (acc, (path, pathItem)) =>
           acc.addPathItem(path, pathItem)
         }
+
+
     }
 
     def createInfo(buildContext: BuildContext): Info = {
@@ -225,7 +213,6 @@ object Exporter {
     }
 
     def processServers(buildContext: BuildContext): Seq[Server] = {
-      import scala.collection.JavaConverters._
 
       buildContext.servers.asScala.map { x =>
 

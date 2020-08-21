@@ -1,5 +1,5 @@
 package modux.model.exporter
 
-import io.swagger.v3.oas.models.media.Schema
+import modux.model.schema.MSchema
 
-case class SchemaDescriptor(reference: Schema[_], references: Map[String, Schema[_]])
+case class SchemaDescriptor(reference: MSchema, references: Map[String, MSchema])

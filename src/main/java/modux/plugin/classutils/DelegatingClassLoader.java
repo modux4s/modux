@@ -4,14 +4,6 @@
 
 package modux.plugin.classutils;
 
-import org.apache.xbean.classloader.NamedClassLoader;
-
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.Enumeration;
-import java.util.function.Supplier;
-
 public class DelegatingClassLoader extends ClassLoader {
 
     private final ClassLoader buildLoader;

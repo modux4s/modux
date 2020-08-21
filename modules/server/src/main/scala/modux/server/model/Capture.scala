@@ -1,4 +1,4 @@
-package modux.core.server.domain
+package modux.server.model
 
 import akka.http.scaladsl.server.Route
 import modux.core.api.ModuleX

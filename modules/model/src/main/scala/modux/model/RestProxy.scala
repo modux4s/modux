@@ -1,8 +1,7 @@
 package modux.model
 
-import io.swagger.v3.oas.models.media.Schema
-import io.swagger.v3.oas.models.parameters.Parameter
 import modux.model.exporter.SchemaDescriptor
+import modux.model.schema.{MParameter, MSchema}
 
 
 trait RestProxy extends RestService {
@@ -13,22 +12,13 @@ trait RestProxy extends RestService {
 
   def method: String
 
-  def schemas: Map[String, Schema[_]]
+  def schemas: Map[String, MSchema]
 
-  def pathParameter: Seq[Parameter]
+  def pathParameter: Seq[MParameter]
 
-  def queryParameter: Seq[Parameter]
+  def queryParameter: Seq[MParameter]
 
   def requestWith: Option[SchemaDescriptor] = None
 
   def responseWith: Option[SchemaDescriptor] = None
-
-  override def toString: String = {
-    s"""
-       |path:  ${this.path}
-       |method:  ${this.method}
-       |requestWith:  ${this.requestWith}
-       |responseWith:  ${this.responseWith}
-       |""".stripMargin
-  }
 }
