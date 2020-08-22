@@ -2,25 +2,19 @@ package modux.core.support
 
 import java.util.concurrent.TimeUnit
 
-import akka.Done
-import akka.http.scaladsl.marshalling.{Marshaller, Marshalling, ToByteStringMarshaller, ToEntityMarshaller}
-import akka.http.scaladsl.model.{HttpCharsets, HttpEntity, HttpRequest, MessageEntity}
-import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, FromEntityUnmarshaller, Unmarshal, Unmarshaller}
-import akka.stream.Materializer
-import akka.util.ByteString
+import akka.http.scaladsl.marshalling.{Marshalling, ToByteStringMarshaller}
+import akka.http.scaladsl.model.HttpCharsets
 import modux.core.feature.{CircuitBreakExtension, RetryExtension}
-import modux.macros.serializer.SerializationSupport
+import modux.macros.serializer.SerializationDefaults.DefaultCodecRegistry
 import modux.macros.serializer.codec.CodecRegistry
 import modux.macros.serializer.codec.providers.api.CodecEntityProvider
 import modux.model.context.Context
 import modux.model.dsl._
-import modux.model.exporter.{EvidenceDescriptor, MediaTypeDescriptor, SchemaDescriptor}
+import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
 import modux.model.{RestService, ServiceDef}
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Try
-
 
 trait RegisterDSL {
 
@@ -41,7 +35,7 @@ trait RegisterDSL {
 
   def serviceDef: ServiceDef
 
-  protected def namedAs(name: String): ServiceDef = ServiceDef(name)
+  protected def namedAs(x: String): ServiceDef = ServiceDef(x)
 
   protected implicit class ServiceSupportDSL(srv: ServiceDef) {
 
@@ -56,7 +50,7 @@ trait RegisterDSL {
 
   protected implicit def asRestEntry(restInstance: RestService): RestEntry = RestEntry(restInstance)
 
-  protected implicit def asRequestDescriptor[A](schemaDescriptor: Option[SchemaDescriptor])(implicit codecRegistry: CodecRegistry = SerializationSupport.DefaultCodecRegistry): Option[RequestDescriptor] = {
+  protected implicit def asRequestDescriptor[A](schemaDescriptor: Option[SchemaDescriptor])(implicit codecRegistry: CodecRegistry = DefaultCodecRegistry): Option[RequestDescriptor] = {
     schemaDescriptor.map { x =>
       RequestDescriptor(MediaTypeDescriptor(extractMediasType(codecRegistry), x))
     }
@@ -69,7 +63,7 @@ trait RegisterDSL {
   }
 
   protected implicit class CodeDescriptorUtils(x: CodeDescriptor) {
-    def represented(schemaDescriptor: Option[SchemaDescriptor])(implicit codecRegistry: CodecRegistry = SerializationSupport.DefaultCodecRegistry): ResponseDescriptor = {
+    def represented(schemaDescriptor: Option[SchemaDescriptor])(implicit codecRegistry: CodecRegistry = DefaultCodecRegistry): ResponseDescriptor = {
 
       val media: Option[MediaTypeDescriptor] = schemaDescriptor.map { x => MediaTypeDescriptor(extractMediasType(codecRegistry), x) }
 

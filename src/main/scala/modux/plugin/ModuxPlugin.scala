@@ -2,6 +2,8 @@ package modux.plugin
 
 import java.nio.file.{Path => JPath}
 import java.util
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.sbt.SbtNativePackager._
 import com.typesafe.sbt.packager.MappingsHelper._
@@ -14,12 +16,18 @@ import sbt.nio.Watch
 import sbt.plugins.JvmPlugin
 import sbt.util.CacheImplicits._
 import sbt.util.CacheStore
-import sbt.{Compile, Def, ModuleID, _}
+import sbt.{Compile, Def, _}
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 object ModuxPlugin extends AutoPlugin {
 
   private final val CONFIG_DIR: String = "conf"
   private final val store: CacheStore = sbt.util.CacheStore(file("./target/streams/modux"))
+  private final val delayState: AtomicBoolean = new AtomicBoolean(false)
+  private final val compilingState: AtomicBoolean = new AtomicBoolean(true)
 
   private def lastIsCompile(): Boolean = {
     store.read[Option[String]](None).contains("compile")
@@ -42,10 +50,19 @@ object ModuxPlugin extends AutoPlugin {
 
   val watchOnFileInputEventImpl: (Int, Watch.Event) => Watch.ContinueWatch = (_: Int, y: Watch.Event) => {
     val path: String = y.path.toFile.getAbsolutePath
+
     if (path.endsWith("~")) {
       Watch.Ignore
     } else {
-      Watch.Trigger
+      if (compilingState.get()) {
+        if (delayState.get()) {
+          Watch.Ignore
+        } else {
+          Watch.Trigger
+        }
+      } else {
+        Watch.Ignore
+      }
     }
   }
 
@@ -74,8 +91,19 @@ object ModuxPlugin extends AutoPlugin {
 
   val taskCompile = Def.taskDyn {
     if (lastIsCompile()) {
-      Def.task {
-        val _ = (compile in Compile).value
+      if (compilingState.get()) {
+        Def.task[Unit] {
+          compilingState.set(false)
+          (compile in Compile).value
+          compilingState.set(true)
+          Future {
+            delayState.set(true)
+            Thread.sleep(2000)
+            delayState.set(false)
+          }
+        }
+      } else {
+        Def.task[Unit] {}
       }
     } else {
       Def.task {
@@ -88,7 +116,6 @@ object ModuxPlugin extends AutoPlugin {
 
   val runnerImpl: Def.Initialize[InputTask[Unit]] = Def.inputTaskDyn {
     val moduxCurrentState: ModuxState = moduxState.value
-
     if (moduxCurrentState.isContinuous) {
       Def.task[Unit] {
         moduxCurrentState.serverReloader.reload()
@@ -221,11 +248,12 @@ object ModuxPlugin extends AutoPlugin {
     run in Compile := runnerImpl.evaluated,
     watchStartMessage in(Compile, run) := watchStartMessageImpl.value,
     watchPersistFileStamps in(Compile, run) := true,
+    watchAntiEntropy in(Compile, run) := FiniteDuration(2, TimeUnit.SECONDS),
+    watchForceTriggerOnAnyChange in(Compile, run) := false,
     watchTriggers in(Compile, run) += baseDirectory.value.toGlob / CONFIG_DIR / **,
     watchOnTermination in(Compile, run) := watchOnTerminationImpl,
     watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
     watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,
-    watchForceTriggerOnAnyChange in(Compile, run) := false,
     scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
     javaOptions in Universal := Def.task {
       Seq(

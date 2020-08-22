@@ -8,15 +8,13 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 * Easy to learn and lightweight.
 * Minimal configurations.
 * Microservices defined by DSL.
-* Open API 3.0 export based on Microservices definitions. You can extend documentations.
+* Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
 * Streaming.
 * Websocket.
 * Serialization support.
 * Hot-Reloading.
 * Clustering support.
 * Easy production building.
-
-
 
 ## Install
 
@@ -80,7 +78,8 @@ case class UserServiceImpl(context: Context) extends UserService{
 }
 ```
 
-To use this service you must register it through trait **ModuleX**. 
+To use this service must be register through trait **ModuleX**. 
+
 ```scala
 case class Module(context: Context) extends ModuleX {
   override def providers: Seq[Service] = Seq(
@@ -378,7 +377,7 @@ To receive a data streaming it is necessary define a function that returns a `Ca
 ```scala
 
 // receive a file 
-def receiveFile(name: String, ext: String): Call[Source[T, Any], Unit] = {src => 
+def receiveFile(name: String, ext: String): Call[Source[ByteString, Any], Unit] = {src => 
   val file: Path = Paths.get(s"$name.$ext")
   src.runWith(FileIO.toPath(file))
 }
@@ -388,7 +387,7 @@ def receiveUsers(): Call[Source[User, Any], Unit] = ???
 ```
 </details>
 
-Similar to send a streaming, only that must be returned a `Call[Unit, Source[T, Any]]`.
+To send a streaming, must be returned a `Call[Unit, Source[T, Any]]`.
 
 <details open>
 <summary>Example</summary>
@@ -434,7 +433,7 @@ For custom entities, like "User" it is necessary declare codecs for it. Extendin
  */
 case class SimpleExample(context: Context) extends Service with SerializationSupport{
 
-  implicit val wsCodec: WebSocketCodec[String, User] = websocketCodec[String, User]
+  implicit val wsCodec: WebSocketCodec[String, User] = codecFor[String, User]
 
   def ws(): Call[WSEvent[String, User], Unit] = WebSocket[String, User] {
     case OnOpenConnection(connection) => 
@@ -442,7 +441,7 @@ case class SimpleExample(context: Context) extends Service with SerializationSup
     case OnCloseConnection(connection) => 
       logger.info(s"Connection $connection closed")
     case OnMessage(connection, message) => 
-      connection.sendMessage(User(message, ZonedDateTime.now()))
+      connection.sendMessage(User(message))
   }
 
   override def serviceDef: ServiceDef = {
@@ -465,7 +464,7 @@ Exists 3 way to provide a codec for any entity.
 3. Extending **CodecMixedProvider**. Provides codec for simple calls and streaming. Combines points 1 and 2.
 
 
-By default Modux provides **CodecMixedProvider** for MediaType "application/json" and "application/xml". Also provides **CodecStreamProvider** for "text/csv".
+By default Modux provides **CodecMixedProvider** for medias type "application/json" and "application/xml". Also provides **CodecStreamProvider** for "text/csv".
 
 
 To provide customs codecs **CodecRegistry** must be extended. Modux has `SerializationSupport.DefaultCodecRegistry` which contains the defaults codecs.
@@ -483,11 +482,10 @@ implicit final val DefaultCodecRegistry: CodecRegistry = {
   }
 ```
 
-### Directives
-
+##### Directives
 * **codecFor[T]**: creates a codec for entity **T**. If a custom CodecRegistry is provided, it can be call like `codecFor[T](customRegistry)`.
 
-* **websocketCodec[A, B]**: Creates a codec for handle `WSEvent[A, B]`. For now, when websocket feature is used, this directive must by applied to serialize messages. 
+* **codecFor[A, B]**: Creates a codec to handle `WSEvent[A, B]` events. For now, when websocket feature is used, this directive must by applied to serialize messages. 
 
 
 ## Exporting APIs
@@ -530,6 +528,7 @@ import modux.shared.{ServerDecl, ServerVar}
 lazy val root = (project in file("."))
   .settings(
     ..... , 
+    moduxOpenAPIVersion := 3, // Exports to Open API 3. Setting to 2 will export to Open API 2. Default value is version 3.
     version := "0.0.1", // project version
     description := "A Modux project example",  // project description
     contact := Some("email@email.com"), // a contact
@@ -548,7 +547,7 @@ lazy val root = (project in file("."))
   )
 ```
 
-Running `sbt moduxExportYaml` a folder named "api" will be created, containing file `{{project-name}}.yaml`. Running `sbt moduxExportJson` will be exported in JSON format.
+Running `sbt moduxExportYaml` a file `{{project-name}}.yaml` under tarter/api will be created. Running `sbt moduxExportJson` will be exported in JSON format.
 
 ```yaml
 openapi: 3.0.1

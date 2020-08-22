@@ -7,6 +7,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.server.{Directives, Route}
 import akka.pattern.CircuitBreaker
 import com.typesafe.config.{Config, ConfigFactory}
@@ -31,7 +32,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   private lazy val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val binding: AtomicReference[Http.ServerBinding] = new AtomicReference[Http.ServerBinding]()
 
-  private val localConfig: Config = ConfigFactory.parseString(ModuxServer(appName)).withFallback(ConfigFactory.load(appClassloader))
+  private val localConfig: Config = ConfigFactory.defaultApplication(appClassloader).withFallback(ConfigFactory.parseString(ModuxServer(appName)))
   private implicit val sys: ClassicAS = ClassicAS(appName, Option(localConfig), Option(appClassloader), None)
   private val sysTyped: ActorSystem[Nothing] = sys.toTyped
   private implicit val ec: ExecutionContextExecutor = sysTyped.executionContext
@@ -76,16 +77,9 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
     val modules: mutable.ArrayBuffer[ModuleX] = mutable.ArrayBuffer.empty
     val specs: mutable.ArrayBuffer[ServiceDef] = mutable.ArrayBuffer.empty
 
-    //************** VALS **************//
-    lazy val maxFailure: Int = localConfig.get[Int]("modux.circuit-breaker.maxFailure")
-    lazy val callTimeoutDur: Duration = Duration(localConfig.get[String]("modux.circuit-breaker.callTimeout"))
-    lazy val resetTimeoutDut: Duration = Duration(localConfig.get[String]("modux.circuit-breaker.resetTimeout"))
-    lazy val callTimeout: FiniteDuration = FiniteDuration(callTimeoutDur.toMillis, callTimeoutDur.unit)
-    lazy val resetTimeout: FiniteDuration = FiniteDuration(resetTimeoutDut.toMillis, resetTimeoutDut.unit)
     //************** CACHE **************//
-
     localConfig
-      .get[List[String]]("modux.modules")
+      .getOrElse[List[String]]("modux.modules", Nil)
       .map(x => appClassloader.loadClass(x))
       .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
       .zipWithIndex
@@ -113,6 +107,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 
               val route: Route = {
                 import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
+
                 val tmp: Route = concat(
                   serviceSpec.servicesCall.flatMap {
                     case x: RestEntry =>
@@ -125,7 +120,14 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
                 )
 
                 serviceSpec.namespace match {
-                  case Some(value) => pathPrefix(value)(tmp)
+                  case Some(value) =>
+
+                    val s: Array[String] = {
+                      val v1: String = if (value.startsWith("/")) value.substring(1) else value
+                      if (v1.endsWith("/")) v1.substring(0, v1.length - 1) else v1
+                    }.split("/")
+
+                    s.reverse.foldLeft(tmp) { case (acc, x) => pathPrefix(x)(acc) }
                   case None => tmp
                 }
               }
@@ -142,10 +144,6 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 object ModuxServer {
   def apply(appName: String): String = {
     s"""
-       |
-       |modux{
-       |  modules = []
-       |}
        |
        |akka {
        |  loggers = ["akka.event.slf4j.Slf4jLogger"]

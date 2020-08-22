@@ -5,7 +5,7 @@
 
 - Simple and lightweight
 - Fast development
-- DSL based, Clustering, Open API 3.0 export
+- DSL based, Streaming, Clustering, Open API 2.0 and 3.0 exporting
 
 [GitHub](https://github.com/modux4s/modux)
 [Get Started](#about)

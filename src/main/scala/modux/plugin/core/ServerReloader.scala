@@ -1,15 +1,17 @@
 package modux.plugin.core
 
-import scala.collection.JavaConverters._
 import java.io.File
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
+import modux.plugin.classutils.DelegatingClassLoader
 import modux.plugin.core.Types.Server
 import modux.shared.{BuildContext, ServerDecl, Threads}
-import modux.plugin.classutils.DelegatingClassLoader
 import org.apache.xbean.classloader.NamedClassLoader
 import sbt._
 
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import scala.util.Try

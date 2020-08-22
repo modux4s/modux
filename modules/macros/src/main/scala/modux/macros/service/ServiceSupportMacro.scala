@@ -108,7 +108,6 @@ object ServiceSupportMacro {
       }
     }
 
-    c.echo(c.enclosingPosition, treeBuild)
     c.Expr(c.parse(treeBuild))
   }
 
@@ -238,9 +237,9 @@ object ServiceSupportMacro {
           val requestTypeStr: String = fullName(c)(requestType.typeArgs.head)
           s"""
              |extractRequest{__request__ =>
-             |  import modux.macros.serializer.SerializationSupport
+             |  import modux.macros.utils.SerializationUtil
              |
-             |  entityAkka(SerializationSupport.moduxAsSource[$requestTypeStr]){__src__ =>
+             |  entityAkka(SerializationUtil.moduxAsSource[$requestTypeStr]){__src__ =>
              |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>

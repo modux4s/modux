@@ -1,17 +1,15 @@
 package modux.macros.serializer
 
-import akka.NotUsed
 import akka.http.scaladsl.common.EntityStreamingSupport
 import akka.http.scaladsl.marshalling._
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.unmarshalling.Unmarshaller.UnsupportedContentTypeException
-import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, FromEntityUnmarshaller, FromRequestUnmarshaller, Unmarshaller}
+import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import akka.http.scaladsl.util.FastFuture
-import akka.stream.scaladsl.{Flow, Keep, Source}
+import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import modux.macros.serializer.SerializationDefaults.DefaultCodecRegistry
 import modux.macros.serializer.codec._
-import modux.macros.serializer.codec.providers.api.{CodecEntityProvider, CodecMixedProvider, CodecProvider}
-import modux.macros.serializer.codec.providers.impl.{CsvStreamProvider, JsonCodecProvider, XmlCodecProvider}
+import modux.macros.serializer.codec.providers.api.{CodecEntityProvider, CodecProvider}
 import modux.macros.serializer.websocket.JsonWebSocketCodecImpl
 import modux.model.converter.WebSocketCodec
 
@@ -21,13 +19,13 @@ trait SerializationSupport {
 
   protected def codecFor[A, B]: WebSocketCodec[A, B] = macro JsonWebSocketCodecImpl.websocket[A, B]
 
-  protected def codecFor[T](implicit codecRegistry: CodecRegistry = SerializationSupport.DefaultCodecRegistry, mf: Manifest[T]): Codec[T] = new Codec[T] {
+  protected def codecFor[T](implicit codecRegistry: CodecRegistry = DefaultCodecRegistry, mf: Manifest[T]): Codec[T] = new Codec[T] {
     override def marshaller(implicit mf: Manifest[T]): ToEntityMarshaller[T] = asEntityMarshaller[T]
 
     override def unmarshaller(implicit mf: Manifest[T]): FromEntityUnmarshaller[T] = unmarshallerBuilder[T]
   }
 
-  protected implicit def asToByteStringMarshaller[T](implicit mf: Manifest[T], codec: CodecRegistry = SerializationSupport.DefaultCodecRegistry): ToByteStringMarshaller[T] = {
+  protected implicit def asToByteStringMarshaller[T](implicit mf: Manifest[T], codec: CodecRegistry = DefaultCodecRegistry): ToByteStringMarshaller[T] = {
     Marshaller.oneOf(codec.entityProvider: _*)(_.toByteStringMarshaller[T])
   }
 
@@ -37,7 +35,7 @@ trait SerializationSupport {
     codec.unmarshaller
   }
 
-  protected implicit def moduxRes[T, M](implicit codec: Codec[T], mf: Manifest[T], codecRegistry: CodecRegistry = SerializationSupport.DefaultCodecRegistry): Marshaller[Source[T, M], HttpResponse] = {
+  protected implicit def moduxRes[T, M](implicit codec: Codec[T], mf: Manifest[T], codecRegistry: CodecRegistry = DefaultCodecRegistry): Marshaller[Source[T, M], HttpResponse] = {
 
     val marshaller: Marshaller[T, Source[ByteString, _]] = codec.marshaller.map(_.dataBytes)
 
@@ -113,49 +111,6 @@ trait SerializationSupport {
   }
 }
 
-object SerializationSupport {
-
-  implicit final val DefaultCodecRegistry: CodecRegistry = {
-    new CodecRegistry {
-      override def codecs: Seq[CodecProvider] = Seq(JsonCodecProvider(), XmlCodecProvider(), CsvStreamProvider())
-    }
-  }
-
-  private type RequestToSourceUnmarshaller[T] = FromRequestUnmarshaller[Source[T, NotUsed]]
-
-  private[modux] def moduxAsSource[T](implicit mf: Manifest[T], cr: CodecRegistry): RequestToSourceUnmarshaller[T] =
-    Unmarshaller.withMaterializer[HttpRequest, Source[T, NotUsed]] { implicit ec =>
-      implicit mat =>
-        req =>
-
-          val entity: RequestEntity = req.entity
-          val contentType: ContentType = entity.contentType
-
-          cr
-            .codecs
-            .collect {
-              case provider: CodecMixedProvider => provider
-            }
-            .find(x => x.streaming.supported.matches(contentType)) match {
-            case Some(codec) =>
-
-              val support: EntityStreamingSupport = codec.streaming
-              val um: FromByteStringUnmarshaller[T] = codec.fromByteStringUnmarshaller[T]
-              val bytes: Source[ByteString, Any] = entity.dataBytes
-              val frames: Source[ByteString, Any] = bytes.via(support.framingDecoder)
-              val marshalling: Flow[ByteString, T, NotUsed] = {
-                if (support.unordered)
-                  Flow[ByteString].mapAsyncUnordered(support.parallelism)(bs => um(bs)(ec, mat))
-                else
-                  Flow[ByteString].mapAsync(support.parallelism)(bs => um(bs)(ec, mat))
-              }
-
-              val elements: Source[T, NotUsed] = frames.viaMat(marshalling)(Keep.right)
-              FastFuture.successful(elements)
-
-            case None => FastFuture.failed(UnsupportedContentTypeException(Option(contentType)))
-          }
-    }
-}
+object SerializationSupport extends SerializationSupport
 
 
