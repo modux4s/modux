@@ -484,7 +484,7 @@ implicit final val DefaultCodecRegistry: CodecRegistry = {
   }
 ```
 
-##### Directives
+#### Directives
 * **codecFor[T]**: creates a codec for entity **T**. If a custom CodecRegistry is provided, it can be call like `codecFor[T](customRegistry)`.
 
 * **codecFor[A, B]**: Creates a codec to handle `WSEvent[A, B]` events. For now, when websocket feature is used, this directive must by applied to serialize messages. 
