@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.server.{Directive, Directive0, Directive1, Directives, Route, RouteResult}
 import akka.pattern.CircuitBreaker
 import com.typesafe.config.{Config, ConfigFactory}
 import modux.core.api.ModuleX
@@ -22,7 +22,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 case class ModuxServer(appName: String, host: String, port: Int, appClassloader: ClassLoader) {

@@ -17,25 +17,25 @@ trait SerializationSupport {
 
   private type TRM[T] = ToResponseMarshaller[T]
 
-  protected def codecFor[A, B]: WebSocketCodec[A, B] = macro JsonWebSocketCodecImpl.websocket[A, B]
+  def codecFor[A, B]: WebSocketCodec[A, B] = macro JsonWebSocketCodecImpl.websocket[A, B]
 
-  protected def codecFor[T](implicit codecRegistry: CodecRegistry = DefaultCodecRegistry, mf: Manifest[T]): Codec[T] = new Codec[T] {
+  def codecFor[T](implicit codecRegistry: CodecRegistry = DefaultCodecRegistry, mf: Manifest[T]): Codec[T] = new Codec[T] {
     override def marshaller(implicit mf: Manifest[T]): ToEntityMarshaller[T] = asEntityMarshaller[T]
 
     override def unmarshaller(implicit mf: Manifest[T]): FromEntityUnmarshaller[T] = unmarshallerBuilder[T]
   }
 
-  protected implicit def asToByteStringMarshaller[T](implicit mf: Manifest[T], codec: CodecRegistry = DefaultCodecRegistry): ToByteStringMarshaller[T] = {
+  implicit def asToByteStringMarshaller[T](implicit mf: Manifest[T], codec: CodecRegistry = DefaultCodecRegistry): ToByteStringMarshaller[T] = {
     Marshaller.oneOf(codec.entityProvider: _*)(_.toByteStringMarshaller[T])
   }
 
-  protected implicit def toCodecRegistry(c: CodecProvider): CodecRegistry = codecRegistry(c)
+  implicit def toCodecRegistry(c: CodecProvider): CodecRegistry = codecRegistry(c)
 
-  protected implicit def asUnmarshaller[A](implicit mf: Manifest[A], codec: Codec[A]): FromEntityUnmarshaller[A] = {
+  implicit def asUnmarshaller[A](implicit mf: Manifest[A], codec: Codec[A]): FromEntityUnmarshaller[A] = {
     codec.unmarshaller
   }
 
-  protected implicit def moduxRes[T, M](implicit codec: Codec[T], mf: Manifest[T], codecRegistry: CodecRegistry = DefaultCodecRegistry): Marshaller[Source[T, M], HttpResponse] = {
+  implicit def moduxRes[T, M](implicit codec: Codec[T], mf: Manifest[T], codecRegistry: CodecRegistry = DefaultCodecRegistry): Marshaller[Source[T, M], HttpResponse] = {
 
     val marshaller: Marshaller[T, Source[ByteString, _]] = codec.marshaller.map(_.dataBytes)
 
@@ -67,7 +67,7 @@ trait SerializationSupport {
     }
   }
 
-  protected implicit def asEntityMarshallerFromCodec[A](implicit mf: Manifest[A], codec: Codec[A]): ToEntityMarshaller[A] = codec.marshaller
+  implicit def asEntityMarshallerFromCodec[A](implicit mf: Manifest[A], codec: Codec[A]): ToEntityMarshaller[A] = codec.marshaller
 
   private def unmarshallerBuilder[A](implicit mf: Manifest[A], cr: CodecRegistry): FromEntityUnmarshaller[A] = {
 

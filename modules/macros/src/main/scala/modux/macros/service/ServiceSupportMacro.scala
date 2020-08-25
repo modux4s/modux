@@ -173,7 +173,6 @@ object ServiceSupportMacro {
     val isEmptyResponse: Boolean = same(c)(responseType, typeOf[NotUsed], definitions.UnitTpe)
     val isWebSocket: Boolean = same(c)(requestType, typeOf[WSEvent[_, _]])
     val isSourceRequest: Boolean = same(c)(requestType, typeOf[Source[_, _]])
-    //    val isSourceResponse: Boolean = same(c)(responseType, typeOf[Source[_, _]])
 
     lazy val pathTpl: String = {
       val tmp: String = pathBuilder(parsedPath.pathParams, argsMap)
@@ -213,7 +212,7 @@ object ServiceSupportMacro {
       if (isWebSocket) {
         s"""
            |extractRequest{ __request__ =>
-           |  handleWebSocketMessages(webSocketManager.listen(AkkaUtils(__request__)))
+           |  handleWebSocketMessages(webSocketManager.listen(AkkaUtils.mapRequest(__request__)))
            |}
            |""".stripMargin
       } else if (isSourceRequest) {
@@ -224,11 +223,11 @@ object ServiceSupportMacro {
           s"""
              |extractDataBytes{__src__ =>
              |  extractRequest{__request__ =>
-             |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
+             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
-             |      case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
+             |      case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse{$responseTpl}
              |    }
              |  }
              |}
@@ -240,11 +239,11 @@ object ServiceSupportMacro {
              |  import modux.macros.utils.SerializationUtil
              |
              |  entityAkka(SerializationUtil.moduxAsSource[$requestTypeStr]){__src__ =>
-             |    val srv = serviceCall.transform(__src__, AkkaUtils(__request__))
+             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
-             |      case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
+             |      case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse(__requestHeader__){$responseTpl}
              |    }
              |  }
              |}
@@ -256,11 +255,11 @@ object ServiceSupportMacro {
         if (isEmptyRequest) {
           s"""
              |extractRequest{__request__ =>
-             |  val srv = serviceCall.transform($requestTypeStr, AkkaUtils(__request__))
+             |  val srv = AkkaUtils.check(serviceCall($requestTypeStr, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
              |  onComplete($onCompleteTpl){
              |    case Failure(e) =>
              |      $errorTpl
-             |    case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
+             |    case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse(__requestHeader__){$responseTpl}
              |  }
              |}
              |"""
@@ -268,11 +267,11 @@ object ServiceSupportMacro {
           s"""
              |extractRequest{ __request__ =>
              |  entityAkka(as[$requestTypeStr]){ __entity__ =>
-             |    val srv = serviceCall.transform(__entity__, AkkaUtils(__request__))
+             |    val srv = AkkaUtils.check(serviceCall(__entity__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
-             |      case Success((__value__, __requestHeader__)) => AkkaUtils.render(__requestHeader__){$responseTpl}
+             |      case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse(__requestHeader__){$responseTpl}
              |    }
              |  }
              |}

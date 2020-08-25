@@ -5,6 +5,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 
 ## Features 
 
+
 * Easy to learn and lightweight.
 * Minimal configurations.
 * Microservices defined by DSL.
@@ -15,6 +16,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 * Hot-Reloading.
 * Clustering support.
 * Easy production building.
+* Compatible with Scala 2.12
 
 ## Install
 
@@ -65,11 +67,11 @@ implemented by...
 ```scala
 case class UserServiceImpl(context: Context) extends UserService{
 
-  def addUser(): Call[User, Unit] = { user =>
+  def addUser(): Call[User, Unit] = Call{ user =>
     logger.info(s"user $user created")
   }
 
-  def getUser(id: String): Call[Unit, User] = Call {
+  def getUser(id: String): Call[Unit, User] = Call.empty {
     if (math.random() < 0.5) {
       NotFound(s"User $id not found")
     } else
@@ -121,16 +123,16 @@ Represents a flow of data where receives an input **IN** and returns a **Future[
 
 ```scala
 // For POST call
-def addUser(): Call[User, Unit] = {user => ??? }
+def addUser(): Call[User, Unit] = Call{user => ??? }
 
-def getUser(): Call[Unit, User] = Call{ Future(User("Frank")) }
+def getUser(): Call[Unit, User] = Call.empty{ Future(User("Frank")) }
 
 ```
 
 Handling request headers.
 
 ```scala
-def addUser(): Call[User, Unit] = Call.handleRequest{(user, request) => 
+def addUser(): Call[User, Unit] = Call.withRequest{(user, request) => 
   if (!request.hasHeader("api-version")) BadRequest("Missing header")
 } 
 
@@ -172,7 +174,7 @@ A **Service** provides the next directives to create a **RestEntry**:
 Creates a RestEntry with method **GET**.
 
 ```scala
-def findById(id:String): Call[Unit, User] = Call{
+def findById(id:String): Call[Unit, User] = Call.empty{
   NotFound(s"User $id not founded")
 }
 
@@ -186,7 +188,7 @@ get("/user/:id", findById _)
 Creates a RestEntry with method **POST**.
 
 ```scala
-def addUser(): Call[User, Unit] = {user => ???}
+def addUser(): Call[User, Unit] = Call{user => ???}
 
 post("/user", addUser _)
 ```
@@ -211,7 +213,7 @@ delete("/user?ages", deleteUsers _)
 Creates a RestEntry with method **HEAD**.
 
 ```scala
-def addUser(): Call[User, Unit] = {user => ???}
+def addUser(): Call[User, Unit] = Call{user => ???}
 
 head("/user", addUser _)
 ```
@@ -225,7 +227,7 @@ head("/user", addUser _)
 Creates a RestEntry with method **PUT**.
 
 ```scala
-def addUser(): Call[User, Unit] = {user => ???}
+def addUser(): Call[User, Unit] = Call{user => ???}
 
 put("/user", addUser _)
 ```
@@ -237,7 +239,7 @@ put("/user", addUser _)
 
 Creates a RestEntry with method **PATCH**. 
 ```scala
-def addUser(): Call[User, Unit] = {user => ???}
+def addUser(): Call[User, Unit] = Call{user => ???}
 
 patch("/user", addUser _)
 ```
@@ -327,11 +329,11 @@ There are available some directives to response a call: **Ok**, **NotFound**, **
 **NotFound**
 
 ```scala
-def getUser(id:String): Call[Unit, User] = Call{
+def getUser(id:String): Call[Unit, User] = Call.empty{
   NotFound
 }
 
-def getUser(id:String): Call[Unit, User] = Call{
+def getUser(id:String): Call[Unit, User] = Call.empty{
   NotFound(s"User $id not founded")
 }
 ```
@@ -343,7 +345,7 @@ case class ErrorReport(message:String)
 case class ServiceExample(ctx: Context) extends Service with SerializationSupport{
   implicit val errorReportCodec = codecFor[ErrorReport]
 
-  def getUser(id:String): Call[Unit, User] = Call{
+  def getUser(id:String): Call[Unit, User] = Call.empty{
     NotFound(ErrorReport(s"User $id not founded"))
   }
 }
@@ -354,11 +356,11 @@ For last example is required a Marshaller for a custom entity. [**SerializationS
 Also, it is possible define customs response with directive **ResponseWith**. For example:
 
 ```scala
-def addUser(): Call[User, Unit] = { user => 
+def addUser(): Call[User, Unit] = Call{ user => 
   ResponseWith(201, "Created")
 }
 
-def doSomething(): Call[Unit, Unit] = {
+def doSomething(): Call[Unit, Unit] = Call.empty{
   ResponseWith(503)
 }
 ```
@@ -377,7 +379,7 @@ To receive a data streaming it is necessary define a function that returns a `Ca
 ```scala
 
 // receive a file 
-def receiveFile(name: String, ext: String): Call[Source[ByteString, Any], Unit] = {src => 
+def receiveFile(name: String, ext: String): Call[Source[ByteString, Any], Unit] = Call{src => 
   val file: Path = Paths.get(s"$name.$ext")
   src.runWith(FileIO.toPath(file))
 }
@@ -395,7 +397,7 @@ To send a streaming, must be returned a `Call[Unit, Source[T, Any]]`.
 ```scala
 
 // returns a stream of users
-def getUsers(): Call[Unit, Source[User, Any]] = Call{
+def getUsers(): Call[Unit, Source[User, Any]] = Call.empty{
  Source(
     List[User](User("Frank"))
   )
@@ -410,7 +412,7 @@ Also it is possible "intercept" the streaming.
 
 ```scala
 
-def getUsers(): Call[Source[Int, Any], Source[Int, Any]] = { src => 
+def getUsers(): Call[Source[Int, Any], Source[Int, Any]] = Call{ src => 
  src.map(x=> x * 2)
 }
 ```

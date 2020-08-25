@@ -10,12 +10,11 @@ import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.{CompletionStrategy, OverflowStrategy}
 import akka.{Done, NotUsed}
+import modux.model.service.Call
 
 import scala.concurrent.ExecutionContext
-//import modux.extension.binding.DependencyInjection.lookup
 import modux.model.converter.WebSocketCodec
-import modux.model.header.RequestHeader
-import modux.model.service.Call
+import modux.model.header.{RequestHeader, ResponseHeader}
 import modux.model.ws._
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -41,22 +40,23 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
   private def initActor(id: String): Behavior[WSCommand] = Behaviors.setup { ctx =>
 
     Behaviors.receiveMessagePartial {
-      case HandleOut(actorRef) => initializedActor(id, actorRef)
+      case HandleOut(actorRef, requestHeader) => initializedActor(id, actorRef, requestHeader)
     }
   }
 
-  private def initializedActor(id: String, outActor: CActor): Behavior[WSCommand] = Behaviors.setup { ctx =>
+  private def initializedActor(id: String, outActor: CActor, requestHeader: RequestHeader): Behavior[WSCommand] = Behaviors.setup { ctx =>
+
 
     val connectionRef: ConnectionRef[OUT] = ConnectionRef(id, ctx.self)
 
-    call.invoke(OnOpenConnection(connectionRef))
+    call(OnOpenConnection(connectionRef), requestHeader, ResponseHeader.Default)
 
     Behaviors.receiveMessagePartial {
       case x: PushMessage =>
 
         mapper.encode(x.message).onComplete {
           case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
-          case Success(messageIn) => call.invoke(OnMessage(connectionRef, messageIn))
+          case Success(messageIn) => call(OnMessage(connectionRef, messageIn), requestHeader, ResponseHeader.Default)
         }
 
         Behaviors.same
@@ -72,7 +72,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
 
       case x: CloseConnection =>
 
-        call.invoke(OnCloseConnection(id))
+        call(OnCloseConnection(id), requestHeader, ResponseHeader.Default)
 
         if (x.forced) outActor ! Done
 
@@ -88,8 +88,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
     val inbound: Sink[Message, Any] = Sink.foreach {
       case message: TextMessage =>
         message match {
-          case x: TextMessage.Strict =>
-            actorRef ! PushMessage(x)
+          case x: TextMessage.Strict => actorRef ! PushMessage(x)
           case _ => logger.warn("TextMessage.Streamed not supported")
         }
       case _: BinaryMessage => logger.warn("BinaryMessage not supported")
@@ -103,7 +102,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
 
     Flow.fromSinkAndSourceMat(inbound, source)((_, outboundMat) => {
 
-      actorRef ! HandleOut(outboundMat)
+      actorRef ! HandleOut(outboundMat, requestHeader)
 
       NotUsed
     })

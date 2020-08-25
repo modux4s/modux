@@ -9,7 +9,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import modux.model.converter.Mapper
 import modux.model.header.RequestHeader
-import modux.model.service.Call
+import modux.model.service.CallSource
 import modux.model.ws._
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 class WebSocketManagerBak[INPUT, OUTPUT](
-                                       call: Call[WSOpenConnection, Option[ActorRef[WSCommand]]]
+                                       call: CallSource[WSOpenConnection, Option[ActorRef[WSCommand]]]
                                      )
                                         (
                                        implicit ec: ExecutionContext,

@@ -1,78 +1,28 @@
 package modux.model.service
 
-
 import modux.model.header.{RequestHeader, ResponseHeader}
 
-import scala.concurrent.{Future, ExecutionContext => EC}
-import scala.util.{Failure, Success, Try}
-
-
-trait Call[IN, OUT] {
-
-  def invoke(r: IN): Future[OUT]
-
-  def transform(in: IN, requestHeader: RequestHeader)(implicit ec: EC): Future[(OUT, ResponseHeader)] = callFailCheck(invoke(in)).map(out => (out, ResponseHeader.Default))
-
-  def mapRequest(f: RequestHeader => RequestHeader)(implicit ec: EC): Call[IN, OUT] = {
-    val self: Call[IN, OUT] = this
-
-    new Call[IN, OUT] {
-      override def transform(in: IN, requestHeader: RequestHeader)(implicit ec: EC): Future[(OUT, ResponseHeader)] = self.transform(in, f(requestHeader))
-
-      override def invoke(r: IN): Future[OUT] = self.transform(r, f(RequestHeader.Default)).map { case (out, _) => out }
-    }
-  }
-
-  def mapResponse(f: (OUT, ResponseHeader) => ResponseHeader)(implicit ec: EC): Call[IN, OUT] = {
-
-    val self: Call[IN, OUT] = this
-
-    new Call[IN, OUT] {
-      override def invoke(r: IN): Future[OUT] = self.invoke(r)
-
-      override def transform(in: IN, requestHeader: RequestHeader)(implicit ec: EC): Future[(OUT, ResponseHeader)] = {
-        self.transform(in, requestHeader).map { case (out, header) => out -> f(out, header) }
-      }
-    }
-  }
-
-  def map[T](f: (OUT, ResponseHeader) => Future[T])(implicit ec: EC): Call[IN, T] = {
-    val self: Call[IN, OUT] = this
-
-    new Call[IN, T] {
-      override def invoke(r: IN): Future[T] = self.invoke(r).flatMap(out => f(out, ResponseHeader.Default))
-
-      override def transform(in: IN, requestHeader: RequestHeader)(implicit ec: EC): Future[(T, ResponseHeader)] = {
-        self.transform(in, requestHeader).flatMap { case (out, header) => f(out, header).map(_ -> header) }
-      }
-    }
-  }
-
-  protected def callFailCheck[T](f: => Future[T])(implicit ec: EC): Future[T] = {
-    Try(f) match {
-      case Failure(exception) => Future.failed(exception)
-      case Success(value) => value
-    }
-  }
-}
+import scala.concurrent.{ExecutionContext, Future}
 
 object Call {
 
-  def apply[R](f: => Future[R])(implicit ec: EC): Call[Unit, R] = _ => f
+  def apply[in, out](f: in => Future[out])(implicit ec: ExecutionContext): Call[in, out] = (x: in, _: RequestHeader, r: ResponseHeader) => f(x).map(y => (y, r))
 
-  def handleRequest[IN, OUT](h: RequestHeader => Future[OUT]): Call[IN, OUT] = handleRequest((_, y) => h(y))
+  def empty[out](f: => Future[out])(implicit ec: ExecutionContext): Call[Unit, out] = (_: Unit, _: RequestHeader, r: ResponseHeader) => f.map(x => (x, r))
 
-  def handleRequest[IN, OUT](h: (IN, RequestHeader) => Future[OUT]): Call[IN, OUT] = new Call[IN, OUT] {
-    override def transform(in: IN, requestHeader: RequestHeader)(implicit ec: EC): Future[(OUT, ResponseHeader)] = h(in, requestHeader).map(out => out -> ResponseHeader.Default)
-
-    override def invoke(r: IN): Future[OUT] = throw new RuntimeException("Must not be called")
+  def withRequest[in, out](f: (in, RequestHeader) => Future[out])(implicit ec: ExecutionContext): Call[in, out] = {
+    (x: in, req: RequestHeader, r: ResponseHeader) => f(x, req).map(y => (y, r))
   }
 
-  def compose[Request, Response](f: RequestHeader => Call[Request, Response])(implicit ec: EC): Call[Request, (Response, ResponseHeader)] = {
-    Call.handleRequest { (in, r) => f(r).transform(in, r) }
+  def handleRequest[in, out](f: RequestHeader => Future[out])(implicit ec: ExecutionContext): Call[in, out] = {
+    (_: in, req: RequestHeader, r: ResponseHeader) => f(req).map(y => (y, r))
   }
 
-  def composeAsync[Request, Response](f: RequestHeader => Future[Call[Request, Response]])(implicit ec: EC): Call[Request, (Response, ResponseHeader)] = {
-    Call.handleRequest { (in, r) => f(r).flatMap(x => x.transform(in, r)) }
+  def compose[in, out](f: RequestHeader => Call[in, out]): Call[in, out] = {
+    (x: in, req: RequestHeader, res: ResponseHeader) => f(req)(x, req, res)
+  }
+
+  def composeAsync[in, out](f: RequestHeader => Future[Call[in, out]])(implicit ec: ExecutionContext): Call[in, out] = {
+    (x: in, req: RequestHeader, res: ResponseHeader) => f(req).flatMap(c => c(x, req, res))
   }
 }
