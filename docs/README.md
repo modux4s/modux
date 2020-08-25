@@ -29,7 +29,6 @@ addSbtPlugin("jsoft.modux" %% "modux-plugin" % "${var.moduxVersion}")
 
 ## Quick Example
 
-
 The basic project structure follows a simple sbt project structure, but it is required a "conf"  folder to read "logback.xml" and "application.conf". 
 
 File "application.conf" includes Modux modules and Akka settings.
