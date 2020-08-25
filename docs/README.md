@@ -82,7 +82,7 @@ case class UserServiceImpl(context: Context) extends UserService{
 }
 ```
 
-To use this service must be register through trait **ModuleX**. 
+To use this service, it must be register through trait **ModuleX**. 
 
 ```scala
 case class Module(context: Context) extends ModuleX {
