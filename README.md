@@ -26,6 +26,6 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 
 # Links
 
-[Documentation](https://modux4s.github.io/modux)
-[Examples](https://github.com/modux4s/modux-example)
+* [Documentation](https://modux4s.github.io/modux)
+* [Examples](https://github.com/modux4s/modux-example)
 
