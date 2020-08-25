@@ -1,30 +1,31 @@
-# README #
+# Introduction
 
-This README would normally document whatever steps are necessary to get your application up and running.
+Modux is a simple and lightweight microservice server for Scala inspired on 
+[Lagom Framework](https://www.lagomframework.com/). The aim is to speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
 
-### What is this repository for? ###
-
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
-
-### How do I get set up? ###
-
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+# Features 
 
 
-### Contribution guidelines ###
+* Easy to learn and lightweight.
+* Minimal configurations.
+* Microservices defined by DSL.
+* Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
+* Streaming.
+* Websocket.
+* Serialization support.
+* Hot-Reloading.
+* Clustering support.
+* Easy production building.
+* Compatible with Scala 2.12
 
-* Writing tests
-* Code review
-* Other guidelines
+# Install
 
-### Who do I talk to? ###
+1. Add plugin `addSbtPlugin("jsoft.modux" %% "modux-plugin" % "1.0.11")` to your **plugin.sbt**.
+2. Add resolver `resolvers += Resolver.bintrayRepo("jsoft", "maven")` to your **build.sbt**.
+3. Enable plugin `enablePlugins(ModuxPlugin)` in your **build.sbt**.
 
-* Repo owner or admin
-* Other community or team contact
+# Links
+
+* [Documentation](https://modux4s.github.io/modux)
+* [Examples](https://github.com/modux4s/modux-example)
+
