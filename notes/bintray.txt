@@ -1,0 +1,1 @@
+sbt -Dbintray.user=yourBintrayUser -Dbintray.pass=yourBintrayPass
