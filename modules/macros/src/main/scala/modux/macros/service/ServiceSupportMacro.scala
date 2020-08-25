@@ -20,11 +20,13 @@ object ServiceSupportMacro {
 
     val staticUrl: String = {
       val x: String = c.eval(url)
-      if (x.endsWith("/")) {
+      val v1: String = if (x.endsWith("/")) {
         x.substring(0, x.length - 1)
       } else {
         x
       }
+
+      if (v1.startsWith("/")) v1.substring(1) else v1
     }
     val staticDir: String = c.eval(dir)
 
@@ -38,8 +40,9 @@ object ServiceSupportMacro {
            |  import akka.http.scaladsl.server.Directives.{get => akkaGet, path=>akkaPath}
            |  import akka.http.scaladsl.server.Directives._
            |  import akka.http.scaladsl.server.Route
+           |  import modux.model.dsl.RestEntryExtension
            |
-           |  override def route: Route = {
+           |  override def route(extensions: Seq[RestEntryExtension]): Route = {
            |    (akkaGet & pathPrefix($rule)) {
            |      pathEndOrSingleSlash {
            |        getFromDirectory(s"$staticDir${slash}index.html")
