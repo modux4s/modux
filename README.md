@@ -1,4 +1,4 @@
-# Introduction :id=about
+# Introduction
 
 Modux is a simple and lightweight microservice server for Scala inspired on 
 [Lagom Framework](https://www.lagomframework.com/). The aim is to speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
