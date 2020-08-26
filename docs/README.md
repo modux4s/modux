@@ -27,7 +27,7 @@ addSbtPlugin("jsoft.modux" %% "modux-plugin" % "${var.moduxVersion}")
 ```
 2. Enable plugin `enablePlugins(ModuxPlugin)` in your **build.sbt**.
 
-**Tip**: run `sbt new modux4s/modux` to build a Modux template project.
+**Tip**: Run `sbt new modux4s/modux` to build a Modux template project.
 
 ## Quick Example
 
