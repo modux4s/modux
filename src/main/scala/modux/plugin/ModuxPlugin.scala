@@ -178,11 +178,11 @@ object ModuxPlugin extends AutoPlugin {
       Def.task(gs)
     } else {
       Def.task {
-        PrintUtils.cyan("""***************************************************""")
+        PrintUtils.cyan("""___________________________________________________""")
         PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
         PrintUtils.cyan("""      |  |  | |     | |     \ |     |  \___/       """)
         PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
-        PrintUtils.cyan("""***************************************************""")
+        PrintUtils.cyan("""---------------------------------------------------""")
         ModuxState.update(InProgress(state.value, createServer.value))
       }
     }
