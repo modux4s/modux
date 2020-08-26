@@ -27,6 +27,8 @@ addSbtPlugin("jsoft.modux" %% "modux-plugin" % "${var.moduxVersion}")
 ```
 2. Enable plugin `enablePlugins(ModuxPlugin)` in your **build.sbt**.
 
+**Tip**: run `sbt new modux4s/modux` to build a Modux template project.
+
 ## Quick Example
 
 The basic project structure follows a simple sbt project structure, but it is required a "conf"  folder to read "logback.xml" and "application.conf". 
