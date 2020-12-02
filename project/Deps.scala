@@ -20,7 +20,8 @@ object Deps {
   private lazy val swaggerVersion3: String = "2.1.4"
   private lazy val swaggerVersion2: String = "1.6.2"
   private lazy val javaxrsVersion3: String = "2.1.1"
-  private lazy  val woodstoxVersion: String = "6.2.1"
+  private lazy val woodstoxVersion: String = "6.2.1"
+  private val compressVersion = "1.20"
 
   //************** DI **************//
   lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
@@ -33,7 +34,7 @@ object Deps {
   lazy val kryoSerialization = "io.altoo" %% "akka-kryo-serialization" % kryoSerializationVersion
   lazy val akkaStream = "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion
   lazy val akkaSharding = "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion
-  lazy val akkaCors: ModuleID =  "ch.megard" %% "akka-http-cors" % "1.0.0"
+  lazy val akkaCors: ModuleID = "ch.megard" %% "akka-http-cors" % "1.0.0"
   //************** LOGGING **************//
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion
   lazy val self4j = "org.slf4j" % "slf4j-api" % self4jVersion
@@ -47,7 +48,10 @@ object Deps {
   lazy val jacksonYaml = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % jacksonVersion
   lazy val jacksonXml = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % jacksonVersion
   lazy val aaltoXmlParser = "com.fasterxml" % "aalto-xml" % aaltoXmlParserVersion
-  lazy val woodstoxCore  =  "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
+  lazy val woodstoxCore = "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
+  // https://mvnrepository.com/artifact/org.apache.commons/commons-compress
+  lazy val compress = "org.apache.commons" % "commons-compress" % compressVersion
+
   //************** DOCUMENTATION **************//
   lazy val swaggerCore3 = "io.swagger.core.v3" % "swagger-core" % swaggerVersion3
   lazy val swaggerModel3 = "io.swagger.core.v3" % "swagger-models" % swaggerVersion3

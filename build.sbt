@@ -2,7 +2,7 @@
 import sbt._
 
 
-ThisBuild / version := "1.0.11"
+ThisBuild / version := "1.1.0-SNAPSHOT"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / scalaVersion := "2.12.12"
@@ -126,6 +126,14 @@ lazy val core = (project in file("./modules/core"))
     libraryDependencies ++= Seq()
   )
 
+lazy val kafkaPlugin = (project in file("./modules/kafka-plugin"))
+  .dependsOn(core)
+  .settings(
+    name:= "kafka-plugin",
+    sbtPlugin:= true,
+    libraryDependencies++= Seq(Deps.compress)
+  )
+
 lazy val server = (project in file("./modules/server"))
   .aggregate(core)
   .dependsOn(core)
@@ -135,8 +143,8 @@ lazy val server = (project in file("./modules/server"))
   )
 
 lazy val root = (project in file("./"))
-  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2)
-  .dependsOn(server, devShared)
+  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaPlugin)
+  .dependsOn(server, devShared, kafkaPlugin)
   .settings(
     sbtPlugin := true,
     name := "modux-plugin",
