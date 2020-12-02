@@ -5,7 +5,7 @@ import sbt._
 ThisBuild / version := "1.0.11"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
-ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / scalaVersion := "2.12.12"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
