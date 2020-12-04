@@ -36,6 +36,7 @@ object Exporter {
 
       new Context {
 
+        override val loader: ClassLoader = buildContext.appClassloader
         private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
         override val actorSystem: ActorSystem[Nothing] = classic.toTyped
         override val config: Config = localConfig

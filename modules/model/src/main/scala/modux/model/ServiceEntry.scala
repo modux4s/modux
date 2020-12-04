@@ -1,3 +1,7 @@
 package modux.model
 
-trait ServiceEntry
+trait ServiceEntry {
+  def onStart(): Unit
+
+  def onStop(): Unit
+}

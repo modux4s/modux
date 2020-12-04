@@ -1,15 +1,15 @@
 
 import sbt._
 
-
 ThisBuild / version := "1.1.0-SNAPSHOT"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / scalaVersion := "2.12.12"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
+ThisBuild / resolvers += "io.confluent" at "https://packages.confluent.io/maven/"
+ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
 bintrayReleaseOnPublish in ThisBuild := false
 
@@ -126,31 +126,32 @@ lazy val core = (project in file("./modules/core"))
     libraryDependencies ++= Seq()
   )
 
-lazy val kafkaPlugin = (project in file("./modules/kafka-plugin"))
+lazy val kafkaCore = (project in file("./modules/kafka"))
   .dependsOn(core)
   .settings(
-    name:= "kafka-plugin",
-    sbtPlugin:= true,
-    libraryDependencies++= Seq(Deps.compress)
+    name := "modux-kafka-core",
+    enablingPublishingSettings,
+    libraryDependencies ++= Seq(Deps.kafka/*, Deps.kafkaSerializer*/)
   )
 
 lazy val server = (project in file("./modules/server"))
   .aggregate(core)
   .dependsOn(core)
   .settings(
-    name:= "modux-server",
+    name := "modux-server",
     enablingPublishingSettings,
   )
 
 lazy val root = (project in file("./"))
-  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaPlugin)
-  .dependsOn(server, devShared, kafkaPlugin)
+  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore)
+  .dependsOn(server, devShared)
   .settings(
     sbtPlugin := true,
     name := "modux-plugin",
     enablingPublishingSettings,
     libraryDependencies ++= Seq(
       Deps.xbean,
+      Deps.compress,
       Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
     )
   )

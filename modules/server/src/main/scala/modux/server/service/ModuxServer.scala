@@ -41,9 +41,12 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
     override val actorSystem: ActorSystem[Nothing] = sysTyped
     override val config: Config = localConfig
     override val executionContext: ExecutionContext = ec
+    override val loader: ClassLoader = appClassloader
   }
 
+  Thread.currentThread().setContextClassLoader(context.loader)
   val capture: Capture = captureCall(context, localConfig)
+
 
   Http().newServerAt(host, port).bindFlow(capture.routes).onComplete {
     case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
@@ -63,6 +66,9 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
         Try(mod.onStop()) match {
           case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
           case _ =>
+            mod.providers.flatMap(_.serviceDef.servicesCall).foreach { x =>
+              Try(x.onStop())
+            }
         }
       }
 
@@ -104,6 +110,13 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
               specs.append(serviceSpec)
 
               PrintUtils.cyan(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK!")
+
+              serviceSpec.servicesCall.foreach { x =>
+                Try(x.onStart()) match {
+                  case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
+                  case _ =>
+                }
+              }
 
               val route: Route = {
                 import akka.http.scaladsl.server.Directives.{concat, pathPrefix}

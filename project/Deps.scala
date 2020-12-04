@@ -3,6 +3,7 @@ import sbt._
 object Deps {
 
   //************** VERSIONS **************//
+  private lazy val kafkaVersion = "2.6.0"
   private lazy val akkaVersion: String = "2.6.8"
   private lazy val akkaHTTPVersion: String = "10.2.0"
   private lazy val scalaLoggingVersion: String = "3.9.2"
@@ -21,7 +22,8 @@ object Deps {
   private lazy val swaggerVersion2: String = "1.6.2"
   private lazy val javaxrsVersion3: String = "2.1.1"
   private lazy val woodstoxVersion: String = "6.2.1"
-  private val compressVersion = "1.20"
+  private lazy val kafkaSerializerVersion = "6.0.1"
+  private lazy val compressVersion = "1.20"
 
   //************** DI **************//
   lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
@@ -51,6 +53,10 @@ object Deps {
   lazy val woodstoxCore = "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
   // https://mvnrepository.com/artifact/org.apache.commons/commons-compress
   lazy val compress = "org.apache.commons" % "commons-compress" % compressVersion
+
+  //************** KAFKA **************//
+  lazy val kafka = "org.apache.kafka" % "kafka-clients" % kafkaVersion
+  lazy val kafkaSerializer = "io.confluent" % "kafka-avro-serializer" % kafkaSerializerVersion
 
   //************** DOCUMENTATION **************//
   lazy val swaggerCore3 = "io.swagger.core.v3" % "swagger-core" % swaggerVersion3

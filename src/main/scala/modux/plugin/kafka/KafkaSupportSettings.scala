@@ -1,6 +1,6 @@
 package modux.plugin.kafka
 
-import sbt._
+import sbt.{settingKey, taskKey}
 
 trait KafkaSupportSettings {
 

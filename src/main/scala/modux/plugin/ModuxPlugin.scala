@@ -21,7 +21,7 @@ import sbt.{Compile, Def, _}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-
+import modux.plugin.ModuxPluginDefaults._
 object ModuxPlugin extends AutoPlugin {
 
   private final val CONFIG_DIR: String = "conf"
@@ -236,7 +236,8 @@ object ModuxPlugin extends AutoPlugin {
     moduxOpenAPIVersion := 3,
     mappings in Universal ++= directory(CONFIG_DIR),
     resolvers += Resolver.mavenLocal,
-    libraryDependencies := Def.setting {
+//    resolvers += "io.confluent" at "https://packages.confluent.io/maven/",
+    libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
         Seq(moduxServer, moduxOpenAPIV2)
       } else {

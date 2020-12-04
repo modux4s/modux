@@ -30,4 +30,8 @@ final case class RestEntry private[modux](
   def returns(x: ResponseDescriptor*): RestEntry = RestEntry(instance, _description, _expect, x, _paramDescriptor, _extensions, _consumes, _produces)
 
   def extendedBy(ext: RestEntryExtension*): RestEntry = RestEntry(instance, _description, _expect, _response, _paramDescriptor, ext, _consumes, _produces)
+
+  override def onStart(): Unit = {}
+
+  override def onStop(): Unit = {}
 }

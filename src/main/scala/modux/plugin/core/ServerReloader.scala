@@ -27,6 +27,11 @@ private[modux] case class ServerReloader private(
                                                   root: ClassLoader
                                                 ) {
 
+  println("*******************")
+  dependencies.foreach(println)
+  println("*******************")
+  moduxModules.foreach(println)
+
   private val appClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
 
   private lazy val baseClassloader: NamedClassLoader = {

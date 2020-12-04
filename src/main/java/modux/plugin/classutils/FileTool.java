@@ -1,4 +1,4 @@
-package modux.plugin.kafka;
+package modux.plugin.classutils;
 
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;

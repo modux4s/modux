@@ -10,6 +10,8 @@ import scala.concurrent.ExecutionContext
 trait Context {
   lazy val classicActorSystem: ClassicActorSystem = actorSystem.toClassic
   lazy val self: Context = this
+
+  val loader: ClassLoader
   val config: Config
   val actorSystem: ActorSystem[Nothing]
   val executionContext: ExecutionContext

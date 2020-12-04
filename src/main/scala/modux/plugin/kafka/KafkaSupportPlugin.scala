@@ -1,16 +1,19 @@
 package modux.plugin.kafka
 
-import akka.actor.FSM.Failure
+import modux.plugin.ModuxPluginDefaults.moduxKafka
+import modux.plugin.classutils.FileTool
 import sbt.Keys._
 import sbt.io.IO
+import sbt._
+
+import scala.sys.process._
 import sbt.plugins.JvmPlugin
-import sbt.{AutoPlugin, Plugins, _}
+import sbt.{AutoPlugin, Def, ModuleID, Plugins, State, url}
 
 import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import scala.sys.process._
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 object KafkaSupportPlugin extends AutoPlugin {
 
@@ -22,6 +25,7 @@ object KafkaSupportPlugin extends AutoPlugin {
   }
 
   import autoImport._
+
 
   lazy val startupTransition: State => State = { s: State => "startKafka" :: s }
   lazy val stopTransition: State => State = { s: State => "stopKafka" :: s }
@@ -41,6 +45,8 @@ object KafkaSupportPlugin extends AutoPlugin {
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
 
     kafkaVersion := "2.6.0",
+    libraryDependencies ++= Seq(moduxKafka),
+//    resolvers += "io.confluent" at "https://packages.confluent.io/maven/",
     onLoad in Global := {
       val old = (onLoad in Global).value
       startupTransition compose old
@@ -65,6 +71,8 @@ object KafkaSupportPlugin extends AutoPlugin {
         if (!(baseDir / s"$folderName.tgz").exists()) {
           logger.info(s"Downloading $folderName...")
           (url(s"https://downloads.apache.org/kafka/$v/$folderName.tgz") #> baseUrl).!
+        }
+        if (!kafkaHOME.exists()){
           IO.delete(baseDir / folderName)
           FileTool.unzip(baseUrl, baseDir)
           IO.move(baseDir / folderName, kafkaHOME)
@@ -74,6 +82,7 @@ object KafkaSupportPlugin extends AutoPlugin {
       val secondStep: Try[Unit] = {
         println("[info] Starting Kafka...")
         doStartServer("zookeeper-server-start.bat", "zookeeper.properties", "zookeeper", kafkaHOME, zookeeperPID)
+        Thread.sleep(5000)
         doStartServer("kafka-server-start.bat", "server.properties", "kafka-server", kafkaHOME, zookeeperPID)
       }
 
