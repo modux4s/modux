@@ -19,7 +19,9 @@ trait ModuxPluginSettings {
   lazy val moduxLogFile = settingKey[String]("logger.file")
   lazy val moduxExportYaml: TaskKey[Unit] = taskKey("Exports service to swagger yaml format.")
   lazy val moduxExportJson: TaskKey[Unit] = taskKey("Exports service to swagger json format.")
-  lazy val moduxOpenAPIVersion  = settingKey[Int]("Open API version. Possibles values: 2 and 3.")
+  lazy val moduxOpenAPIVersion: SettingKey[Int] = settingKey[Int]("Open API version. Possibles values: 2 and 3.")
   //************** modules **************//
+
+  lazy val moduxStopHook: TaskKey[Unit] = taskKey[Unit]("Implements stop hooks")
 
 }

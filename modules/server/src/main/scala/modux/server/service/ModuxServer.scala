@@ -1,28 +1,25 @@
 package modux.server.service
 
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.http.scaladsl.server.{Directive, Directive0, Directive1, Directives, Route, RouteResult}
-import akka.pattern.CircuitBreaker
+import akka.http.scaladsl.server.{Directives, Route}
 import com.typesafe.config.{Config, ConfigFactory}
 import modux.core.api.ModuleX
 import modux.model.context.Context
 import modux.model.dsl.RestEntry
-import modux.model.{RestInstance, ServiceDef}
+import modux.model.{RestInstance, ServiceDef, ServiceEntry}
 import modux.server.model
 import modux.server.model.Capture
 import modux.shared.PrintUtils
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
 import scala.util.{Failure, Success, Try}
 
 case class ModuxServer(appName: String, host: String, port: Int, appClassloader: ClassLoader) {
@@ -38,39 +35,37 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   private implicit val ec: ExecutionContextExecutor = sysTyped.executionContext
 
   private val context: Context = new Context {
+    override val applicationLoader: ClassLoader = appClassloader
+    override val applicationName: String = appName
     override val actorSystem: ActorSystem[Nothing] = sysTyped
     override val config: Config = localConfig
     override val executionContext: ExecutionContext = ec
-    override val loader: ClassLoader = appClassloader
   }
 
-  Thread.currentThread().setContextClassLoader(context.loader)
-  val capture: Capture = captureCall(context, localConfig)
-
+  val capture: Capture = context.contextThread(captureCall(context, localConfig))
 
   Http().newServerAt(host, port).bindFlow(capture.routes).onComplete {
     case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
     case Success(value) => binding.set(value)
   }
 
-  def stop(): Unit = {
+  def stop(): Unit = context.contextThread {
 
     Option(binding.get()).foreach(value => Await.result(value.terminate(DEFAULT_DURATION), DEFAULT_DURATION))
     terminateSys()
   }
 
   private def terminateSys(): Unit = {
+
     capture
       .modules
       .foreach { mod =>
-        Try(mod.onStop()) match {
-          case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
-          case _ =>
-            mod.providers.flatMap(_.serviceDef.servicesCall).foreach { x =>
-              Try(x.onStop())
-            }
-        }
+        Try(mod.onStop()).recover { case t => logger.error(t.getLocalizedMessage, t) }
       }
+
+    capture.servicesEntry.foreach { x =>
+      Try(x.onStop()).recover { case t => logger.error(t.getLocalizedMessage, t) }
+    }
 
     sys.terminate()
     Await.result(sys.whenTerminated, DEFAULT_DURATION)
@@ -82,41 +77,40 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
     val routes: mutable.ArrayBuffer[Route] = mutable.ArrayBuffer.empty
     val modules: mutable.ArrayBuffer[ModuleX] = mutable.ArrayBuffer.empty
     val specs: mutable.ArrayBuffer[ServiceDef] = mutable.ArrayBuffer.empty
+    val serviceEntry: mutable.ArrayBuffer[ServiceEntry] = mutable.ArrayBuffer.empty
 
     //************** CACHE **************//
+
     localConfig
       .getOrElse[List[String]]("modux.modules", Nil)
       .map(x => appClassloader.loadClass(x))
       .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
       .zipWithIndex
-      .foreach { case (x, idx) =>
+      .foreach { case (moduleX, idx) =>
 
-        modules.append(x)
+        modules.append(moduleX)
 
         val idxFinal: Int = idx + 1
 
-        Try(x.onStart()) match {
+        Try(moduleX.onStart()) match {
           case Failure(exception) =>
             logger.error(exception.getLocalizedMessage, exception)
-            PrintUtils.error(s"${x.getClass.getSimpleName} failing.")
+            PrintUtils.error(s"${moduleX.getClass.getSimpleName} failing.")
           case _ =>
 
-            PrintUtils.cyan(s"$idxFinal. ${x.getClass.getSimpleName}")
+            PrintUtils.cyan(s"$idxFinal. ${moduleX.getClass.getSimpleName}")
 
-            x.providers.zipWithIndex.foreach { case (srv, idy) =>
+            moduleX.providers.zipWithIndex.foreach { case (srv, idy) =>
 
               val serviceSpec: ServiceDef = srv.serviceDef
 
               specs.append(serviceSpec)
+              serviceSpec.servicesCall.foreach { entry =>
+                serviceEntry.append(entry)
+                Try(entry.onStart()).recover { case t => logger.error(t.getLocalizedMessage, t) }
+              }
 
               PrintUtils.cyan(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK!")
-
-              serviceSpec.servicesCall.foreach { x =>
-                Try(x.onStart()) match {
-                  case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
-                  case _ =>
-                }
-              }
 
               val route: Route = {
                 import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
@@ -150,7 +144,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
         }
       }
 
-    model.Capture(Directives.concat(routes: _*), modules, specs)
+    model.Capture(Directives.concat(routes: _*), modules, specs, serviceEntry)
   }
 }
 

@@ -48,6 +48,7 @@ private[modux] case class ServerReloader private(
 
   private val server: Server = {
     Threads.withContextClassLoader(baseClassloader) {
+      import scala.language.reflectiveCalls
       val m: Class[_] = baseClassloader.loadClass("modux.server.DevServer$")
       m.getField("MODULE$").get(null).asInstanceOf[Server]
     }

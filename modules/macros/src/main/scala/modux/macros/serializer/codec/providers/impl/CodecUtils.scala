@@ -11,13 +11,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 object CodecUtils {
 
   private final val json: ObjectMapper = prepare(new ObjectMapper())
-  private final val xml: ObjectMapper = prepare {
-    /*val module: JacksonXmlModule = new JacksonXmlModule()
-    module.setDefaultUseWrapper(false)
-    new XmlMapper(module)*/
-//    new ObjectMapper(new XmlFactory().configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, false))
-    new XmlMapper()//.configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, false)
-  }
+  private final val xml: ObjectMapper = prepare(new XmlMapper())
   private final val yaml: ObjectMapper = prepare(new ObjectMapper(new YAMLFactory()))
 
   private def prepare(d: ObjectMapper): ObjectMapper = {

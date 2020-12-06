@@ -40,66 +40,12 @@ object KafkaSupportPlugin extends AutoPlugin {
   private final val kafkaPID = new AtomicReference[lang.Process]()
   private final val baseDirRef = new AtomicReference[File]()
 
-  lang.Runtime.getRuntime.addShutdownHook(new Thread(() => forceStop()))
-
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
 
     kafkaVersion := "2.6.0",
     libraryDependencies ++= Seq(moduxKafka),
-//    resolvers += "io.confluent" at "https://packages.confluent.io/maven/",
-    onLoad in Global := {
-      val old = (onLoad in Global).value
-      startupTransition compose old
-    },
-    onUnload in Global := {
-      val old = (onLoad in Global).value
-      stopTransition compose old
-    },
-    startKafka := Def.task[Unit] {
-
-      forceStop()
-
-      val v: String = kafkaVersion.value
-      val baseDir: File = target.value
-      val kafkaHOME: File = baseDir / "kafka"
-      val folderName = s"kafka_2.12-$v"
-      val baseUrl: File = baseDir / s"$folderName.tgz"
-      val logger = streams.value.log
-      baseDirRef.set(baseDir)
-
-      val firstStep: Try[Unit] = Try {
-        if (!(baseDir / s"$folderName.tgz").exists()) {
-          logger.info(s"Downloading $folderName...")
-          (url(s"https://downloads.apache.org/kafka/$v/$folderName.tgz") #> baseUrl).!
-        }
-        if (!kafkaHOME.exists()){
-          IO.delete(baseDir / folderName)
-          FileTool.unzip(baseUrl, baseDir)
-          IO.move(baseDir / folderName, kafkaHOME)
-        }
-      }
-
-      val secondStep: Try[Unit] = {
-        println("[info] Starting Kafka...")
-        doStartServer("zookeeper-server-start.bat", "zookeeper.properties", "zookeeper", kafkaHOME, zookeeperPID)
-        Thread.sleep(5000)
-        doStartServer("kafka-server-start.bat", "server.properties", "kafka-server", kafkaHOME, zookeeperPID)
-      }
-
-      {
-        for {
-          _ <- firstStep
-          _ <- secondStep
-        } yield ()
-      }.recover { case t =>
-        t.printStackTrace()
-        Failure(t)
-      }
-    }.value,
-
-    stopKafka := Def.task[Unit] {
-      forceStop()
-    }
+    resolvers += "io.confluent" at "https://packages.confluent.io/maven/",
+    stopHook += Def.task[Unit](forceStop(streams.value.log))
   )
 
   private def doStartServer(startScript: String, configFile: String, streamFileName: String, KAFKA_HOME: File, storeRef: AtomicReference[lang.Process]): Try[Unit] = Try {
@@ -114,7 +60,7 @@ object KafkaSupportPlugin extends AutoPlugin {
     storeRef.set(process)
   }
 
-  private def doStopServer(script: String, baseDir: File): Unit = {
+  private def doStopServer(script: String, baseDir: File): Try[Unit] = Try {
     val scriptLocal: String = if (isLinux) s"/$script.sh" else s"/windows/$script.bat"
     val absoluteFile: File = baseDir.getAbsoluteFile
     val p: lang.Process = new lang.ProcessBuilder(s"${absoluteFile.absolutePath}/bin$scriptLocal").directory(absoluteFile).start()
@@ -122,22 +68,22 @@ object KafkaSupportPlugin extends AutoPlugin {
     p.waitFor(10, TimeUnit.SECONDS)
   }
 
-  private def forceStop(): Try[Unit] = Try {
+  private def forceStop(logger: ManagedLogger): Unit = {
     val maybeBaseDir: Option[File] = Option(baseDirRef.get())
     val maybeZookeeperPID: Option[lang.Process] = Option(zookeeperPID.get())
     val maybeKafkaPID: Option[lang.Process] = Option(kafkaPID.get())
 
     maybeBaseDir.foreach { baseDir =>
       val basePath: File = baseDir / "kafka"
-      doStopServer("zookeeper-server-stop", basePath)
-      doStopServer("kafka-server-stop", basePath)
-    }
+      doStopServer("zookeeper-server-stop", basePath).recover { case t => logger.error(t.getLocalizedMessage) }
+      doStopServer("kafka-server-stop", basePath).recover { case t => logger.error(t.getLocalizedMessage) }
 
-    maybeZookeeperPID.foreach(_.destroy())
-    maybeKafkaPID.foreach(_.destroy())
+      Try(maybeZookeeperPID.foreach(_.destroy()))
+      Try(maybeKafkaPID.foreach(_.destroy()))
 
-    if (maybeBaseDir.isDefined || maybeKafkaPID.isDefined || maybeZookeeperPID.isDefined) {
-      println(s"[success]: Kafka stopped...")
+      if (maybeBaseDir.isDefined || maybeKafkaPID.isDefined || maybeZookeeperPID.isDefined) {
+        logger.info("Kafka stopped...")
+      }
     }
   }
 }

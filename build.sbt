@@ -131,7 +131,7 @@ lazy val kafkaCore = (project in file("./modules/kafka"))
   .settings(
     name := "modux-kafka-core",
     enablingPublishingSettings,
-    libraryDependencies ++= Seq(Deps.kafka/*, Deps.kafkaSerializer*/)
+    libraryDependencies ++= Seq(Deps.kafka)
   )
 
 lazy val server = (project in file("./modules/server"))

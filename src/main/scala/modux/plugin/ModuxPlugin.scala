@@ -79,8 +79,12 @@ object ModuxPlugin extends AutoPlugin {
       value.serverReloader.shutdown()
       ModuxState.clean()
     }
+
+    val e = Project.extract(state)
+    val (newState, _) = e.runTask(moduxStopHook, state)
+
     state.log.success("Server down")
-    state
+    newState
   }
 
   val watchTriggeredMessageImpl: (Int, JPath, Seq[String]) => Option[String] = (_: Int, _: JPath, _: Seq[String]) => None

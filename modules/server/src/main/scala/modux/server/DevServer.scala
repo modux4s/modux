@@ -1,8 +1,7 @@
 package modux.server
 
 import java.io.File
-import java.util.concurrent.atomic.AtomicInteger
-
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
 import modux.server.model.Types.ExporterResolver
@@ -13,7 +12,7 @@ import org.slf4j.helpers.SubstituteLoggerFactory
 
 private[modux] object DevServer {
 
-  private var serverRef: ModuxServer = _
+  private var serverRef: AtomicReference[ModuxServer] = new AtomicReference[ModuxServer]()
   private var lastTimeLogFileModified: Long = 0
   private var firstTime: Boolean = true
 
@@ -26,7 +25,7 @@ private[modux] object DevServer {
   }
 
   def stop(): Unit = {
-    Option(serverRef).foreach(_.stop())
+    Option(serverRef.get()).foreach(_.stop())
   }
 
   /**
@@ -74,11 +73,13 @@ private[modux] object DevServer {
   }
 
   private def start(buildContext: BuildContext): Unit = {
-    serverRef = ModuxServer(
-      buildContext.get("appName"),
-      buildContext.get("host"),
-      buildContext.get("port").toInt,
-      buildContext.appClassloader
+    serverRef.set(
+      ModuxServer(
+        buildContext.get("appName"),
+        buildContext.get("host"),
+        buildContext.get("port").toInt,
+        buildContext.appClassloader
+      )
     )
   }
 }

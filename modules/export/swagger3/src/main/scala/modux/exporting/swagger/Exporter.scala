@@ -36,8 +36,9 @@ object Exporter {
 
       new Context {
 
-        override val loader: ClassLoader = buildContext.appClassloader
         private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
+        override val applicationLoader: ClassLoader = applicationLoader
+        override val applicationName: String = buildContext.settings.get("appName")
         override val actorSystem: ActorSystem[Nothing] = classic.toTyped
         override val config: Config = localConfig
         override val executionContext: ExecutionContext = ExecutionContext.Implicits.global
@@ -102,7 +103,7 @@ object Exporter {
                       headerParam
                   }
 
-                  val params: Seq[Parameter] = ( VersionAdapter3(proxy.pathParameter) ++ VersionAdapter3(proxy.queryParameter) ++ cookieAndHeaderParams)
+                  val params: Seq[Parameter] = (VersionAdapter3(proxy.pathParameter) ++ VersionAdapter3(proxy.queryParameter) ++ cookieAndHeaderParams)
                     .map { p =>
                       paramDesMap.get(p.getName).fold(p) { x =>
                         x._examples.foreach { case (k, v) =>
@@ -158,8 +159,8 @@ object Exporter {
 
                       media.mediaTypes.foreach { z =>
                         val mt: MediaType = new MediaType
-//                        mt.setSchema(VersionAdapter(media.schemaDescriptor.reference))
-                        mt.setSchema( proxy.responseWith.map(z=> VersionAdapter3(z.reference)).getOrElse(VersionAdapter3(media.schemaDescriptor.reference)) )
+                        //                        mt.setSchema(VersionAdapter(media.schemaDescriptor.reference))
+                        mt.setSchema(proxy.responseWith.map(z => VersionAdapter3(z.reference)).getOrElse(VersionAdapter3(media.schemaDescriptor.reference)))
                         examplesMap.get(z).foreach(mt.setExample(_))
                         content.addMediaType(z, mt)
                       }
@@ -189,7 +190,6 @@ object Exporter {
         .foldLeft(paths) { case (acc, (path, pathItem)) =>
           acc.addPathItem(path, pathItem)
         }
-
 
     }
 

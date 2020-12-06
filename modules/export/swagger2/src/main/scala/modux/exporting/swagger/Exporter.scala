@@ -30,12 +30,12 @@ object Exporter {
       val localConfig: Config = ConfigFactory.load(appClassloader)
 
       new Context {
-
-        override val loader: ClassLoader = buildContext.appClassloader
         private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
+        override val applicationName: String = buildContext.settings.get("appName")
         override val actorSystem: ActorSystem[Nothing] = classic.toTyped
         override val config: Config = localConfig
         override val executionContext: ExecutionContext = ExecutionContext.Implicits.global
+        override val applicationLoader: ClassLoader = appClassloader
       }
     }
 

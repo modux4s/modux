@@ -9,7 +9,7 @@ import java.io.*;
 
 public class FileTool {
 
-    static public void unzip(File fileIn, File dir) throws IOException {
+    static public void unzip(File fileIn, File dir, boolean isLinux) throws IOException {
         TarArchiveInputStream tarIn = new TarArchiveInputStream(
                 new GzipCompressorInputStream(
                         new BufferedInputStream(
