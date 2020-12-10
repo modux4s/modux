@@ -90,12 +90,16 @@ object ServiceSupportMacro {
 
     //************** INITIALIZATION **************//
     val argsMap: Map[String, c.universe.ValDef] = funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
+
     val isCompile: Boolean = sys.props.get("modux.mode").forall(_ == "compile")
     lazy val urlValue: String = c.eval[String](url)
     lazy val parsedPath: PathMetadata = extractVariableName(c)(urlValue)
     lazy val parsedArgumentsMap: Map[String, AsPathParam] = parsedPath.parsedArgumentsMap
+    val functionRefClassName: String = funcRef.tpe.typeSymbol.fullName
 
-    if (parsedArgumentsMap.size + parsedPath.queryParams.size != argsMap.size) {
+    if (!functionRefClassName.startsWith("scala.Function")) {
+      c.abort(c.enclosingPosition, s"A function must be passed as second parameter. You pass '$functionRefClassName'")
+    } else if (parsedArgumentsMap.size + parsedPath.queryParams.size != argsMap.size) {
       c.abort(c.enclosingPosition, s"Arguments lengths doesn't match with path arguments length in path '$urlValue'.")
     } else if (!argsMap.keySet.forall(x => parsedPath.queryParams.contains(x) || parsedArgumentsMap.contains(x))) {
       c.abort(c.enclosingPosition, s"Some arguments name doesn't match with the path arguments.")
@@ -164,7 +168,14 @@ object ServiceSupportMacro {
     }
 
     //************** INITIALIZATION **************//
-    val callType: c.universe.Type = funcRef.tpe.resultType.typeArgs.last
+    val hasNoArgs: Boolean = funcRef.tpe.typeConstructor.toString.startsWith("modux.model.service.Call")
+    val callType: c.universe.Type = {
+      if (hasNoArgs)
+        funcRef.tpe.resultType
+      else
+        funcRef.tpe.resultType.typeArgs.last
+    }
+
     val argsName: Seq[String] = funcRef.collect { case t: ValDef => t }.map(_.name.toString)
     val argsMap: Map[String, c.universe.ValDef] = funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
 
@@ -297,7 +308,7 @@ object ServiceSupportMacro {
       val parsedArguments: Seq[AsPathParam] = parsedPath.parsedArguments
       val argsType: String = parsedArguments.flatMap(x => argsMap.get(x.name)).map(x => s""" ${x.name}: ${x.tpt.tpe} """).mkString("(", ",", ") =>")
       val pathArguments: String = if (parsedArguments.isEmpty) "" else argsType
-      val argumentsCall: String = argsName.mkString("(", ", ", ")")
+      val argumentsCall: String = if (hasNoArgs) "" else argsName.mkString("(", ", ", ")")
 
       //************** query params processing **************//
 

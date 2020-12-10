@@ -10,5 +10,5 @@ object ModuxPluginDefaults {
   lazy val moduxOpenAPIV2: ModuleID = "jsoft.modux" %% "modux-swagger-v2" % moduxVersion
   lazy val moduxOpenAPIV3: ModuleID = "jsoft.modux" %% "modux-swagger-v3" % moduxVersion
   lazy val moduxSerialization: ModuleID = "jsoft.modux" %% "modux-serialization" % moduxVersion
-  lazy val moduxKafka: ModuleID = "jsoft.modux" %% "modux-kafka-CORE" % moduxVersion
+  lazy val moduxKafka: ModuleID = "jsoft.modux" %% "modux-kafka-core" % moduxVersion
 }

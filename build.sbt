@@ -103,6 +103,13 @@ lazy val devShared = (project in file("./modules/shared"))
     enablingPublishingSettings,
   )
 
+lazy val plug = (project in file("./modules/plug"))
+  .settings(
+    sbtPlugin := true,
+    name := "modux-plug",
+    enablingPublishingSettings,
+  )
+
 lazy val macros = (project in file("./modules/macros"))
   .aggregate(model)
   .dependsOn(model)
@@ -142,9 +149,10 @@ lazy val server = (project in file("./modules/server"))
     enablingPublishingSettings,
   )
 
+
 lazy val root = (project in file("./"))
-  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore)
-  .dependsOn(server, devShared)
+  .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore, plug)
+  .dependsOn(server, devShared, plug)
   .settings(
     sbtPlugin := true,
     name := "modux-plugin",
@@ -152,6 +160,7 @@ lazy val root = (project in file("./"))
     libraryDependencies ++= Seq(
       Deps.xbean,
       Deps.compress,
-      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
+      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12"),
+//      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
     )
   )

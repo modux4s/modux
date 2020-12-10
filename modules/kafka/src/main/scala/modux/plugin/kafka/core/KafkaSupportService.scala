@@ -24,7 +24,6 @@ case class KafkaSupportService(topicName: String, call: Topic => Unit, context: 
 
   override def run(): Unit = {
     consumer.subscribe(Seq(topicName).asJava)
-    logger.info("starting consumer")
 
     while (keepRunning.get()) {
       consumer.poll(Duration.ofSeconds(10)).forEach { record =>
@@ -33,10 +32,11 @@ case class KafkaSupportService(topicName: String, call: Topic => Unit, context: 
           case _ =>
         }
       }
-      Try(consumer.commitAsync()).recover { case t => logger.error(t.getLocalizedMessage, t) }
-
+      Try(consumer.commitSync()).recover { case t => logger.error(t.getLocalizedMessage, t) }
     }
-    Try(consumer.close(Duration.ofSeconds(5))).recover { case t => logger.error(t.getLocalizedMessage, t) }
+
+    consumer.unsubscribe()
+    Try(consumer.close()).recover { case t => logger.error(t.getLocalizedMessage, t) }
   }
 
   override def onStart(): Unit = {

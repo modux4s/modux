@@ -1,13 +1,10 @@
 package modux.plugin
 
-import java.nio.file.{Path => JPath}
-import java.util
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.typesafe.sbt.SbtNativePackager._
 import com.typesafe.sbt.packager.MappingsHelper._
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
+import modux.plug.HookPlugin
+import modux.plugin.ModuxPluginDefaults._
 import modux.plugin.core.{InProgress, ModuxState, ModuxUtils, ServerReloader}
 import modux.shared.PrintUtils
 import sbt.Keys._
@@ -18,10 +15,14 @@ import sbt.util.CacheImplicits._
 import sbt.util.CacheStore
 import sbt.{Compile, Def, _}
 
+import java.nio.file.{Path => JPath}
+import java.util
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import modux.plugin.ModuxPluginDefaults._
+
 object ModuxPlugin extends AutoPlugin {
 
   private final val CONFIG_DIR: String = "conf"
@@ -39,14 +40,14 @@ object ModuxPlugin extends AutoPlugin {
 
   override def trigger = allRequirements
 
-  override def requires: Plugins = JvmPlugin && JavaAppPackaging
+  override def requires: Plugins = JvmPlugin && JavaAppPackaging && HookPlugin
 
   object autoImport extends ModuxPluginSettings {
   }
 
   import autoImport._
   import com.typesafe.sbt.packager.archetypes.JavaAppPackaging.autoImport._
-
+  import modux.plug.HookPlugin.autoImport._
 
   val watchOnFileInputEventImpl: (Int, Watch.Event) => Watch.ContinueWatch = (_: Int, y: Watch.Event) => {
     val path: String = y.path.toFile.getAbsolutePath
@@ -181,6 +182,7 @@ object ModuxPlugin extends AutoPlugin {
     if (gs.initialized) {
       Def.task(gs)
     } else {
+
       Def.task {
         PrintUtils.cyan("""___________________________________________________""")
         PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
@@ -188,7 +190,7 @@ object ModuxPlugin extends AutoPlugin {
         PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
         PrintUtils.cyan("""---------------------------------------------------""")
         ModuxState.update(InProgress(state.value, createServer.value))
-      }
+      }.dependsOn(Def.sequential(startHook.value))
     }
   }
 
@@ -240,7 +242,6 @@ object ModuxPlugin extends AutoPlugin {
     moduxOpenAPIVersion := 3,
     mappings in Universal ++= directory(CONFIG_DIR),
     resolvers += Resolver.mavenLocal,
-//    resolvers += "io.confluent" at "https://packages.confluent.io/maven/",
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
         Seq(moduxServer, moduxOpenAPIV2)
@@ -266,6 +267,8 @@ object ModuxPlugin extends AutoPlugin {
         s"-Dmodux.port=${moduxPort.value}",
         s"-Dmodux.name=${name.value}",
       )
-    }.value
+    }.value,
+
+    moduxStopHook := Def.taskDyn[Unit](Def.sequential(stopHook.value)).value
   )
 }
