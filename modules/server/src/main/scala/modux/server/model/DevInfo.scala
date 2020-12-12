@@ -7,7 +7,7 @@ object DevInfo {
 
   def apply(descriptor: ServiceDef): Unit = {
 
-    val servicesCallSize: Int = descriptor.servicesCall.size
+    val servicesCallSize: Int = descriptor.serviceEntries.size
 
     val description: String = {
       if (servicesCallSize == 0) {

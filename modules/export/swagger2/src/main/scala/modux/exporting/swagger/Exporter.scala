@@ -12,9 +12,9 @@ import io.swagger.models._
 import io.swagger.models.utils.PropertyModelConverter
 import io.swagger.util.{Json, Yaml}
 import modux.core.api.ModuleX
-import modux.model.RestProxy
 import modux.model.context.Context
 import modux.model.dsl.{CookieKind, HeaderKind, ParamDescriptor, RestEntry}
+import modux.model.rest.RestProxy
 import modux.model.schema.{MRefSchema, MSchema}
 import modux.shared.BuildContext
 
@@ -63,10 +63,10 @@ object Exporter {
         .providers
         .flatMap { srv =>
 
-          srv.serviceDef.servicesCall
+          srv.serviceDef.serviceEntries
             .collect { case x: RestEntry => x }
             .flatMap { x =>
-              x.instance match {
+              x.restService match {
                 case proxy: RestProxy => Option((x, proxy))
                 case _ => None
               }

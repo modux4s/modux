@@ -1,7 +1,6 @@
 package modux.core.support
 
 import java.util.concurrent.TimeUnit
-
 import akka.http.scaladsl.marshalling.{Marshalling, ToByteStringMarshaller}
 import akka.http.scaladsl.model.HttpCharsets
 import modux.core.feature.{CircuitBreakExtension, RetryExtension}
@@ -11,7 +10,7 @@ import modux.macros.serializer.codec.providers.api.CodecEntityProvider
 import modux.model.context.Context
 import modux.model.dsl._
 import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
-import modux.model.{RestService, ServiceDef}
+import modux.model.{ServiceDef, ServiceEntry}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -35,20 +34,9 @@ trait RegisterDSL {
 
   def serviceDef: ServiceDef
 
-  protected def namedAs(x: String): ServiceDef = ServiceDef(x)
+  protected def namedAs(serviceName: String): ServiceDef = ServiceDef(serviceName)
 
-  protected implicit class ServiceSupportDSL(srv: ServiceDef) {
-
-    def withNamespace(ns: String): ServiceDef = ServiceDef(
-      srv.name,
-      Option(ns),
-      srv.servicesCall
-    )
-
-    def withCalls(xs: RestEntry*): ServiceDef = srv.copy(servicesCall = xs)
-  }
-
-  protected implicit def asRestEntry(restInstance: RestService): RestEntry = RestEntry(restInstance)
+  protected def namespace(ns: String)(restEntry: RestEntry*): ServiceEntry = NameSpacedEntry(ns, restEntry)
 
   protected implicit def asRequestDescriptor[A](schemaDescriptor: Option[SchemaDescriptor])(implicit codecRegistry: CodecRegistry = DefaultCodecRegistry): Option[RequestDescriptor] = {
     schemaDescriptor.map { x =>

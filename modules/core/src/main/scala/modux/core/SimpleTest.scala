@@ -19,9 +19,9 @@ case class SimpleTest(context: Context) extends Service {
 
   override def serviceDef: ServiceDef = {
     namedAs("pepe")
-      .withCalls(
+      .entry(
         get("/test", test ),
-        get("/test", test2 _ ),
+        get("/test2", test2 _ ),
       )
   }
 }

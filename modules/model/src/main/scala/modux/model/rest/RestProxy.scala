@@ -1,8 +1,7 @@
-package modux.model
+package modux.model.rest
 
 import modux.model.exporter.SchemaDescriptor
 import modux.model.schema.{MParameter, MSchema}
-
 
 trait RestProxy extends RestService {
 

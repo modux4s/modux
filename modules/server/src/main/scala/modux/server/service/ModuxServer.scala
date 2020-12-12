@@ -4,12 +4,13 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.server.Directives.concat
 import akka.http.scaladsl.server.{Directives, Route}
 import com.typesafe.config.{Config, ConfigFactory}
 import modux.core.api.ModuleX
 import modux.model.context.Context
-import modux.model.dsl.RestEntry
-import modux.model.{RestInstance, ServiceDef, ServiceEntry}
+import modux.model.{ServiceDef, ServiceEntry}
+import modux.server.lib.{ConfigBuilder, RouterCapture}
 import modux.server.model
 import modux.server.model.Capture
 import modux.shared.PrintUtils
@@ -29,7 +30,8 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   private lazy val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val binding: AtomicReference[Http.ServerBinding] = new AtomicReference[Http.ServerBinding]()
 
-  private val localConfig: Config = ConfigFactory.defaultApplication(appClassloader).withFallback(ConfigFactory.parseString(ModuxServer(appName)))
+  private val configStr: String = ConfigBuilder.build(appName)
+  private val localConfig: Config = ConfigFactory.defaultApplication(appClassloader).withFallback(ConfigFactory.parseString(configStr))
   private implicit val sys: ClassicAS = ClassicAS(appName, Option(localConfig), Option(appClassloader), None)
   private val sysTyped: ActorSystem[Nothing] = sys.toTyped
   private implicit val ec: ExecutionContextExecutor = sysTyped.executionContext
@@ -100,102 +102,27 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 
             PrintUtils.cyan(s"$idxFinal. ${moduleX.getClass.getSimpleName}")
 
-            moduleX.providers.zipWithIndex.foreach { case (srv, idy) =>
+            moduleX
+              .providers
+              .zipWithIndex
+              .foreach { case (srv, idy) =>
 
-              val serviceSpec: ServiceDef = srv.serviceDef
+                val serviceSpec: ServiceDef = srv.serviceDef
 
-              specs.append(serviceSpec)
-              serviceSpec.servicesCall.foreach { entry =>
-                serviceEntry.append(entry)
-                Try(entry.onStart()).recover { case t => logger.error(t.getLocalizedMessage, t) }
-              }
+                specs.append(serviceSpec)
 
-              PrintUtils.cyan(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK!")
-
-              val route: Route = {
-                import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
-
-                val tmp: Route = concat(
-                  serviceSpec.servicesCall.flatMap {
-                    case x: RestEntry =>
-                      x.instance match {
-                        case instance: RestInstance => Option(instance.route(x._extensions))
-                        case _ => None
-                      }
-                    case _ => None
-                  }: _*
-                )
-
-                serviceSpec.namespace match {
-                  case Some(value) =>
-
-                    val s: Array[String] = {
-                      val v1: String = if (value.startsWith("/")) value.substring(1) else value
-                      if (v1.endsWith("/")) v1.substring(0, v1.length - 1) else v1
-                    }.split("/")
-
-                    s.reverse.foldLeft(tmp) { case (acc, x) => pathPrefix(x)(acc) }
-                  case None => tmp
+                serviceSpec.serviceEntries.foreach { entry =>
+                  serviceEntry.append(entry)
+                  Try(entry.onStart()).recover { case t => logger.error(t.getLocalizedMessage, t) }
                 }
-              }
 
-              routes += route
-            }
+                PrintUtils.cyan(s"\t$idxFinal.${idy + 1} ${serviceSpec.name} OK!")
+
+                routes += concat(RouterCapture.extract(serviceSpec.serviceEntries): _*)
+              }
         }
       }
 
     model.Capture(Directives.concat(routes: _*), modules, specs, serviceEntry)
-  }
-}
-
-object ModuxServer {
-  def apply(appName: String): String = {
-    s"""
-       |
-       |akka {
-       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
-       |
-       |  loglevel = "info"
-       |  stdout-loglevel = "off"
-       |
-       |  actor {
-       |    provider = "cluster"
-       |    allow-java-serialization = on
-       |
-       |    serializers {
-       |      kryo = "io.altoo.akka.serialization.kryo.KryoSerializer"
-       |    }
-       |
-       |    serialization-bindings {
-       |      "java.io.Serializable" = kryo
-       |    }
-       |  }
-       |
-       |  http {
-       |    server {
-       |      websocket {
-       |        periodic-keep-alive-max-idle = 1 second
-       |      }
-       |    }
-       |  }
-       |
-       |  remote.artery {
-       |    canonical.port = 2553
-       |    canonical.hostname = localhost
-       |  }
-       |
-       |  cluster {
-       |    seed-nodes = [
-       |      "akka://$appName@localhost:2553"
-       |    ]
-       |
-       |    sharding {
-       |      number-of-shards = 100
-       |    }
-       |
-       |    downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
-       |  }
-       |}
-       |""".stripMargin
   }
 }

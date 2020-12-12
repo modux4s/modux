@@ -1,4 +1,4 @@
-package modux.model
+package modux.model.rest
 
 sealed trait Path
 

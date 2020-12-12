@@ -6,7 +6,9 @@ import akka.util.ByteString
 import modux.macros.MacroUtils._
 import modux.macros.utils.SchemaUtils
 import modux.model._
+import modux.model.dsl.RestEntry
 import modux.model.exporter.SchemaDescriptor
+import modux.model.rest.{AsPath, AsPathParam, Path, PathMetadata}
 import modux.model.ws.WSEvent
 
 import scala.collection.mutable
@@ -16,7 +18,7 @@ import scala.util.{Failure, Success, Try => stry}
 //noinspection NotImplementedCode,DuplicatedCode
 object ServiceSupportMacro {
 
-  def staticServe(c: blackbox.Context)(url: c.Expr[String], dir: c.Expr[String]): c.Expr[RestService] = {
+  def staticServe(c: blackbox.Context)(url: c.Expr[String], dir: c.Expr[String]): c.Expr[RestEntry] = {
 
     val staticUrl: String = {
       val x: String = c.eval(url)
@@ -33,30 +35,32 @@ object ServiceSupportMacro {
     val rule: String = staticUrl.split("/").map(x => x.qt).mkString("/")
     val slash: String = if (staticDir.endsWith("/")) "" else "/"
 
-    c.Expr[RestService](
+    c.Expr[RestEntry](
       c.parse(
         s"""
-           |new modux.model.RestInstance {
-           |  import akka.http.scaladsl.server.Directives.{get => akkaGet, path=>akkaPath}
-           |  import akka.http.scaladsl.server.Directives._
-           |  import akka.http.scaladsl.server.Route
-           |  import modux.model.dsl.RestEntryExtension
+           |modux.model.dsl.RestEntry(
+           |  new modux.model.rest.RestInstance {
+           |    import akka.http.scaladsl.server.Directives.{get => akkaGet, path=>akkaPath}
+           |    import akka.http.scaladsl.server.Directives._
+           |    import akka.http.scaladsl.server.Route
+           |    import modux.model.dsl.RestEntryExtension
            |
-           |  override def route(extensions: Seq[RestEntryExtension]): Route = {
-           |    (akkaGet & pathPrefix($rule)) {
-           |      pathEndOrSingleSlash {
-           |        getFromDirectory(s"$staticDir${slash}index.html")
-           |      } ~
-           |      getFromDirectory("$staticDir")
+           |    override def route(extensions: Seq[RestEntryExtension]): Route = {
+           |      (akkaGet & pathPrefix($rule)) {
+           |        pathEndOrSingleSlash {
+           |          getFromDirectory(s"$staticDir${slash}index.html")
+           |        } ~
+           |        getFromDirectory("$staticDir")
+           |      }
            |    }
            |  }
-           |}
+           |)
            |""".stripMargin
       )
     )
   }
 
-  def callRestBuilder(c: blackbox.Context)(checkName: Boolean, url: c.Expr[String], funcRef: c.Tree): c.Expr[RestService] = {
+  def callRestBuilder(c: blackbox.Context)(checkName: Boolean, url: c.Expr[String], funcRef: c.Tree): c.Expr[RestEntry] = {
     import c.universe._
 
     val callType: c.universe.Type = funcRef.tpe.resultType.typeArgs.last
@@ -85,7 +89,7 @@ object ServiceSupportMacro {
     }
   }
 
-  def restServiceBuilder(c: blackbox.Context)(method: String, url: c.Expr[String], funcRef: c.Tree): c.Expr[RestService] = {
+  def restServiceBuilder(c: blackbox.Context)(method: String, url: c.Expr[String], funcRef: c.Tree): c.Expr[RestEntry] = {
     import c.universe._
 
     //************** INITIALIZATION **************//
@@ -390,31 +394,33 @@ object ServiceSupportMacro {
     def tpl: String = s"$pathTpl($bodyTpl)"
 
     s"""
-       |new modux.model.RestInstance {
-       |    import akka.http.scaladsl.server.Directives._
-       |    import scala.util.{Success, Failure, Try}
-       |    import scala.concurrent.Future
-       |    import akka.http.scaladsl.server.Directives.{path => __path__, entity => entityAkka}
-       |    import modux.model._
-       |    import akka.http.scaladsl.server.Route
-       |    import akka.http.scaladsl.model.StatusCodes
-       |    import modux.model.header._
-       |    import akka.http.scaladsl.common.EntityStreamingSupport
-       |    import modux.macros.utils.AkkaUtils
-       |    import modux.model.dsl.ResponseAsFalseFail
-       |    import akka.pattern.CircuitBreakerOpenException
-       |    import akka.pattern.CircuitBreaker
-       |    import akka.http.scaladsl.server.CircuitBreakerOpenRejection
-       |    import akka.stream.scaladsl.Sink
-       |    import modux.model.dsl.RestEntryExtension
+       |modux.model.dsl.RestEntry(
+       |  new modux.model.rest.RestInstance {
+       |      import akka.http.scaladsl.server.Directives._
+       |      import scala.util.{Success, Failure, Try}
+       |      import scala.concurrent.Future
+       |      import akka.http.scaladsl.server.Directives.{path => __path__, entity => entityAkka}
+       |      import modux.model._
+       |      import akka.http.scaladsl.server.Route
+       |      import akka.http.scaladsl.model.StatusCodes
+       |      import modux.model.header._
+       |      import akka.http.scaladsl.common.EntityStreamingSupport
+       |      import modux.macros.utils.AkkaUtils
+       |      import modux.model.dsl.ResponseAsFalseFail
+       |      import akka.pattern.CircuitBreakerOpenException
+       |      import akka.pattern.CircuitBreaker
+       |      import akka.http.scaladsl.server.CircuitBreakerOpenRejection
+       |      import akka.stream.scaladsl.Sink
+       |      import modux.model.dsl.RestEntryExtension
        |
-       |    private val callback = $funcRef
-       |    $extraAttrs
+       |      private val callback = $funcRef
+       |      $extraAttrs
        |
-       |    override def route(__extensions: Seq[RestEntryExtension]): Route = {
-       |      $tpl
-       |    }
-       |}
+       |      override def route(__extensions: Seq[RestEntryExtension]): Route = {
+       |        $tpl
+       |      }
+       |  }
+       |  )
        |""".stripMargin
   }
 
@@ -478,39 +484,24 @@ object ServiceSupportMacro {
     }
 
     val joinedSchemas: String = schemaUtil.joiner(storeRef.toMap)
-    /*
-        s"""
-           |new modux.model.RestProxy {
-           |
-           |  import modux.model.exporter.SchemaDescriptor
-           |  import modux.model.schema.{MParameter, WSchema, MPrimitiveSchema, MArraySchema}
-           |
-           |  override def ignore: Boolean = $isWebSocket
-           |  override def pathParameter: Seq[MParameter] = $pathParamInf
-           |  override def queryParameter: Seq[MParameter] = $queryParamInf
-           |  override def schemas: Map[String, WSchema] = $joinedSchemas
-           |  override def path: String = "${normalizePath(urlValue)}"
-           |  override def method: String = "$method"
-           |  override def requestWith: Option[SchemaDescriptor] = $requestMat
-           |  override def responseWith: Option[SchemaDescriptor] = $responseMat
-           |}
-           |""".stripMargin*/
 
     s"""
-       |new modux.model.RestProxy {
-       |
-       |  import modux.model.exporter.SchemaDescriptor
-       |  import modux.model.schema.{MParameter, MSchema, MRefSchema, MPrimitiveSchema, MArraySchema, MComposed}
-       |
-       |  override def ignore: Boolean = $isWebSocket
-       |  override def pathParameter: Seq[MParameter] = $pathParamInf
-       |  override def queryParameter: Seq[MParameter] = $queryParamInf
-       |  override def schemas: Map[String, MSchema] = $joinedSchemas
-       |  override def path: String = "${normalizePath(urlValue)}"
-       |  override def method: String = "$method"
-       |  override def requestWith: Option[SchemaDescriptor] = $requestMat
-       |  override def responseWith: Option[SchemaDescriptor] = $responseMat
-       |}
+       |modux.model.dsl.RestEntry(
+       |  new modux.model.rest.RestProxy {
+       |  
+       |    import modux.model.exporter.SchemaDescriptor
+       |    import modux.model.schema.{MParameter, MSchema, MRefSchema, MPrimitiveSchema, MArraySchema, MComposed}
+       |  
+       |    override def ignore: Boolean = $isWebSocket
+       |    override def pathParameter: Seq[MParameter] = $pathParamInf
+       |    override def queryParameter: Seq[MParameter] = $queryParamInf
+       |    override def schemas: Map[String, MSchema] = $joinedSchemas
+       |    override def path: String = "${normalizePath(urlValue)}"
+       |    override def method: String = "$method"
+       |    override def requestWith: Option[SchemaDescriptor] = $requestMat
+       |    override def responseWith: Option[SchemaDescriptor] = $responseMat
+       |  }
+       |)
        |""".stripMargin
   }
 }

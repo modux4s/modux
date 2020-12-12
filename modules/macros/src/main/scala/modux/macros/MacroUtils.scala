@@ -1,9 +1,8 @@
 package modux.macros
 
-import modux.model.{AsPath, AsPathParam, Path, PathMetadata}
+import modux.model.rest.{AsPath, AsPathParam, Path, PathMetadata}
 
 import scala.reflect.macros.blackbox
-import scala.util.matching.Regex
 
 object MacroUtils {
 

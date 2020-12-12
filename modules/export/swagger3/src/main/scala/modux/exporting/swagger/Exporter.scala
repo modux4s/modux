@@ -18,9 +18,9 @@ import io.swagger.v3.oas.models.responses.{ApiResponse, ApiResponses}
 import io.swagger.v3.oas.models.servers.{Server, ServerVariable, ServerVariables}
 import io.swagger.v3.oas.models.{Components, OpenAPI, Operation, PathItem, Paths}
 import modux.core.api.ModuleX
-import modux.model.RestProxy
 import modux.model.dsl.{CookieKind, HeaderKind, ParamDescriptor, RestEntry}
 import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
+import modux.model.rest.RestProxy
 import modux.model.schema.MSchema
 
 import scala.concurrent.ExecutionContext
@@ -69,10 +69,10 @@ object Exporter {
         .providers
         .flatMap { srv =>
 
-          srv.serviceDef.servicesCall
+          srv.serviceDef.serviceEntries
             .collect { case x: RestEntry => x }
             .flatMap { x =>
-              x.instance match {
+              x.restService match {
                 case proxy: RestProxy => Option((x, proxy))
                 case _ => None
               }
