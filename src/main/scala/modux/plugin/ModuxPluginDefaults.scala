@@ -3,7 +3,7 @@ package modux.plugin
 import sbt._
 
 object ModuxPluginDefaults {
-  lazy val moduxVersion: String = "1.1.0-SNAPSHOT"
+  lazy val moduxVersion: String = "1.1.0"
   lazy val moduxMacros: ModuleID = "jsoft.modux" %% "modux-macros" % moduxVersion
   lazy val moduxCore: ModuleID = "jsoft.modux" %% "modux-core" % moduxVersion
   lazy val moduxServer: ModuleID = "jsoft.modux" %% "modux-server" % moduxVersion

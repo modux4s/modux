@@ -136,6 +136,15 @@ object ModuxPlugin extends AutoPlugin {
     }
   }.dependsOn(taskCompile)
 
+  private val startHookImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    val d: Seq[Def.Initialize[Task[Unit]]] = startHook.value
+    if (d.nonEmpty) {
+      Def.sequential(d)
+    } else {
+      Def.task[Unit] {}
+    }
+  }
+
   val createServer: Def.Initialize[Task[ServerReloader]] = Def.task {
     val depsClasspath: Classpath = (dependencyClasspath in(Compile, run)).value
     val cd: File = (classDirectory in(Compile, run)).value
@@ -184,13 +193,9 @@ object ModuxPlugin extends AutoPlugin {
     } else {
 
       Def.task {
-        PrintUtils.cyan("""___________________________________________________""")
-        PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
-        PrintUtils.cyan("""      |  |  | |     | |     \ |     |  \___/       """)
-        PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
-        PrintUtils.cyan("""---------------------------------------------------""")
+
         ModuxState.update(InProgress(state.value, createServer.value))
-      }.dependsOn(Def.sequential(startHook.value))
+      }.dependsOn(startHookImpl)
     }
   }
 
@@ -269,6 +274,13 @@ object ModuxPlugin extends AutoPlugin {
       )
     }.value,
 
-    moduxStopHook := Def.taskDyn[Unit](Def.sequential(stopHook.value)).value
+    moduxStopHook := Def.taskDyn[Unit] {
+      val value: Seq[Def.Initialize[Task[Unit]]] = stopHook.value
+      if (value.nonEmpty) {
+        Def.sequential(value)
+      } else {
+        Def.task {}
+      }
+    }.value
   )
 }
