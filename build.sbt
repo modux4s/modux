@@ -1,7 +1,7 @@
 
 import sbt._
 
-ThisBuild / version := "1.1.0-SNAPSHOT"
+ThisBuild / version := "1.1.0"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / scalaVersion := "2.12.12"
