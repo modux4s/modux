@@ -763,7 +763,7 @@ To enabled it, next steps must be followed.
 a topic name to subscribe, and an implementation with type `Topic => Future[Unit]`.
 
 
-###### Example 
+**Example**
 ```scala
 case class DefaultService(context: Context) extends Service with KafkaSupport {
 
