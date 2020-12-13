@@ -193,7 +193,11 @@ object ModuxPlugin extends AutoPlugin {
     } else {
 
       Def.task {
-
+        PrintUtils.cyan("""___________________________________________________""")
+        PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
+        PrintUtils.cyan("""      |  |  | |     | |     \ |     |  \___/       """)
+        PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
+        PrintUtils.cyan("""---------------------------------------------------""")
         ModuxState.update(InProgress(state.value, createServer.value))
       }.dependsOn(startHookImpl)
     }
