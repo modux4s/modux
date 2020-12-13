@@ -68,7 +68,6 @@ final case class KafkaService(isLinux: Boolean, basePath: File) {
       val process: Process = new ProcessBuilder(stopScript.absolutePath).directory(basePath).start()
       process.waitFor()
       process.destroy()
-      logger.info("Kafka stopped")
     }
   }
 

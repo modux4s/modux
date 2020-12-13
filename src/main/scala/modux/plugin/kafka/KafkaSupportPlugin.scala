@@ -57,6 +57,7 @@ object KafkaSupportPlugin extends AutoPlugin {
     val logger: ManagedLogger = streams.value.log
     if (autoLoadKafka.value) {
       doStop(logger)
+      logger.info("Kafka stopped")
     }
   }
 
@@ -110,7 +111,9 @@ object KafkaSupportPlugin extends AutoPlugin {
       z.doStart(new Callback {
         override def onComplete(): Unit = {
           k.doStart(new Callback {
-            override def onComplete(): Unit = {}
+            override def onComplete(): Unit = {
+              log.info("Kafka started")
+            }
 
             override def onError(): Unit = {}
 

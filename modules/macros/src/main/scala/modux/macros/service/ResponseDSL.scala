@@ -9,6 +9,8 @@ trait ResponseDSL {
   def NotFound: Nothing = macro ResponseSupportMacro.NotFoundEmpty
   def NotFound[A](d: A): Nothing = macro ResponseSupportMacro.NotFound[A]
 
+  def Redirect(url: String, code: Int): Nothing = macro ResponseSupportMacro.Redirect
+
   def BadRequest: Nothing = macro ResponseSupportMacro.BadRequestEmpty
   def BadRequest[A](d: A): Nothing = macro ResponseSupportMacro.BadRequest[A]
 
