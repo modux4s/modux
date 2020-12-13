@@ -778,10 +778,13 @@ case class DefaultService(context: Context) extends Service with KafkaSupport {
 ```
 
 #### Details
+
 1. This feature uses [Alpakka Kafka](https://doc.akka.io/docs/alpakka-kafka/current/). 
 2. Consumer settings are defined under configuration path `akka.kafka.consumer`. Server
 bootstrap under `akka.kafka.bootstrap` ("localhost:9092" by default). 
+   
 #### Plugin settings
+
 *KafkaSupportPlugin* auto-download and start Kafka before Modux server start. The version used it's defined 
 by setting `kafkaVersion := "2.6.0"`. You can disable auto-start feature setting 
 `autoLoadKafka := false`. 
@@ -789,4 +792,4 @@ by setting `kafkaVersion := "2.6.0"`. You can disable auto-start feature setting
 
 ## Need help?
 
-See Github project with more examples.
+Clone [Shop Example](https://github.com/modux4s/modux-example) to see more examples.
