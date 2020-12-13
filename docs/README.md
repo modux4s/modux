@@ -751,7 +751,7 @@ akka {
 **Important**. Internally Modux creates a ActorSystem named by the **name** sbt project property. This must be taken into account when setting up a cluster. See [examples](https://www.google.com/) for details.
 
 
-## Plugins
+# Plugins
 
 ### Kafka Support
 
