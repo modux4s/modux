@@ -3,27 +3,29 @@ import sbt._
 object Deps {
 
   //************** VERSIONS **************//
-  private lazy val kafkaVersion = "2.6.0"
-  private lazy val akkaVersion: String = "2.6.8"
-  private lazy val akkaHTTPVersion: String = "10.2.0"
-  private lazy val scalaLoggingVersion: String = "3.9.2"
-  private lazy val xbeanVersion: String = "4.16"
-  private lazy val ansiInterpolatorVersion: String = "1.1.0"
-  private lazy val self4jVersion: String = "1.7.25"
-  private lazy val jacksonVersion: String = "2.11.2"
-  private lazy val typeConfigVersion: String = "1.4.0"
-  private lazy val logbackClassicVersion: String = "1.2.3"
-  private lazy val kryoSerializationVersion: String = "1.1.5"
-  private lazy val sbtNativePackagerVersion: String = "1.7.3"
-  private lazy val aaltoXmlParserVersion: String = "1.2.2"
-  private lazy val configScalaVersion: String = "1.0.3"
-  private lazy val scalaTestVersion: String = "3.2.0"
-  private lazy val swaggerVersion3: String = "2.1.4"
-  private lazy val swaggerVersion2: String = "1.6.2"
-  private lazy val javaxrsVersion3: String = "2.1.1"
-  private lazy val woodstoxVersion: String = "6.2.1"
-  private lazy val kafkaSerializerVersion = "6.0.1"
-  private lazy val compressVersion = "1.20"
+  private final val kafkaVersion = "2.6.0"
+  private final val akkaVersion: String = "2.6.10"
+  private final val akkaHTTPVersion: String = "10.2.2"
+  private final val scalaLoggingVersion: String = "3.9.2"
+  private final val xbeanVersion: String = "4.16"
+  private final val ansiInterpolatorVersion: String = "1.1.0"
+  private final val self4jVersion: String = "1.7.25"
+  private final val jacksonVersion: String = "2.11.2"
+  private final val typeConfigVersion: String = "1.4.0"
+  private final val logbackClassicVersion: String = "1.2.3"
+  private final val kryoSerializationVersion: String = "1.1.5"
+  private final val sbtNativePackagerVersion: String = "1.7.3"
+  private final val aaltoXmlParserVersion: String = "1.2.2"
+  private final val configScalaVersion: String = "1.0.3"
+  private final val scalaTestVersion: String = "3.2.0"
+  private final val swaggerVersion3: String = "2.1.4"
+  private final val swaggerVersion2: String = "1.6.2"
+  private final val javaxrsVersion3: String = "2.1.1"
+  private final val woodstoxVersion: String = "6.2.1"
+  private final val kafkaSerializerVersion: String = "6.0.1"
+  private final val compressVersion: String = "1.20"
+  private final val akkaKafkaVersion: String = "2.0.5"
+  private final val akkaCorsVersion: String = "1.0.0"
 
   //************** DI **************//
   lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
@@ -36,7 +38,7 @@ object Deps {
   lazy val kryoSerialization = "io.altoo" %% "akka-kryo-serialization" % kryoSerializationVersion
   lazy val akkaStream = "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion
   lazy val akkaSharding = "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion
-  lazy val akkaCors: ModuleID = "ch.megard" %% "akka-http-cors" % "1.0.0"
+  lazy val akkaCors: ModuleID = "ch.megard" %% "akka-http-cors" % akkaCorsVersion
   //************** LOGGING **************//
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion
   lazy val self4j = "org.slf4j" % "slf4j-api" % self4jVersion
@@ -51,13 +53,10 @@ object Deps {
   lazy val jacksonXml = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % jacksonVersion
   lazy val aaltoXmlParser = "com.fasterxml" % "aalto-xml" % aaltoXmlParserVersion
   lazy val woodstoxCore = "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
-  // https://mvnrepository.com/artifact/org.apache.commons/commons-compress
   lazy val compress = "org.apache.commons" % "commons-compress" % compressVersion
 
   //************** KAFKA **************//
-  lazy val kafka = "org.apache.kafka" % "kafka-clients" % kafkaVersion
-  lazy val kafkaSerializer = "io.confluent" % "kafka-avro-serializer" % kafkaSerializerVersion
-
+  lazy val akkaKafka =  "com.typesafe.akka" %% "akka-stream-kafka" % akkaKafkaVersion
   //************** DOCUMENTATION **************//
   lazy val swaggerCore3 = "io.swagger.core.v3" % "swagger-core" % swaggerVersion3
   lazy val swaggerModel3 = "io.swagger.core.v3" % "swagger-models" % swaggerVersion3

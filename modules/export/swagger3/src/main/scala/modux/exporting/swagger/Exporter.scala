@@ -18,7 +18,7 @@ import io.swagger.v3.oas.models.responses.{ApiResponse, ApiResponses}
 import io.swagger.v3.oas.models.servers.{Server, ServerVariable, ServerVariables}
 import io.swagger.v3.oas.models.{Components, OpenAPI, Operation, PathItem, Paths}
 import modux.core.api.ModuleX
-import modux.model.dsl.{CookieKind, HeaderKind, ParamDescriptor, RestEntry}
+import modux.model.dsl.{CookieKind, HeaderKind, NameSpacedEntry, ParamDescriptor, RestEntry}
 import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
 import modux.model.rest.RestProxy
 import modux.model.schema.MSchema
@@ -37,7 +37,7 @@ object Exporter {
       new Context {
 
         private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
-        override val applicationLoader: ClassLoader = applicationLoader
+        override val applicationLoader: ClassLoader = appClassloader
         override val applicationName: String = buildContext.settings.get("appName")
         override val actorSystem: ActorSystem[Nothing] = classic.toTyped
         override val config: Config = localConfig
@@ -69,13 +69,26 @@ object Exporter {
         .providers
         .flatMap { srv =>
 
-          srv.serviceDef.serviceEntries
-            .collect { case x: RestEntry => x }
-            .flatMap { x =>
-              x.restService match {
-                case proxy: RestProxy => Option((x, proxy))
-                case _ => None
-              }
+          srv
+            .serviceDef
+            .serviceEntries
+            .collect {
+              case x: RestEntry => x
+              case x: NameSpacedEntry => x
+            }
+            .flatMap {
+              case x: NameSpacedEntry =>
+                x
+                  .restEntry
+                  .collect { case y: RestEntry => (y, y.restService) }
+                  .collect { case (z, y: RestProxy) => (z, y.copy(x.ns + y.path)) }
+
+              case x: RestEntry =>
+                x.restService match {
+                  case proxy: RestProxy => Seq((x, proxy))
+                  case _ => Nil
+                }
+              case _ => Nil
             }
             .filterNot { case (_, x) => x.ignore }
             .groupBy(_._2.path)

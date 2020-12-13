@@ -486,22 +486,22 @@ object ServiceSupportMacro {
     val joinedSchemas: String = schemaUtil.joiner(storeRef.toMap)
 
     s"""
-       |modux.model.dsl.RestEntry(
-       |  new modux.model.rest.RestProxy {
-       |  
-       |    import modux.model.exporter.SchemaDescriptor
-       |    import modux.model.schema.{MParameter, MSchema, MRefSchema, MPrimitiveSchema, MArraySchema, MComposed}
-       |  
-       |    override def ignore: Boolean = $isWebSocket
-       |    override def pathParameter: Seq[MParameter] = $pathParamInf
-       |    override def queryParameter: Seq[MParameter] = $queryParamInf
-       |    override def schemas: Map[String, MSchema] = $joinedSchemas
-       |    override def path: String = "${normalizePath(urlValue)}"
-       |    override def method: String = "$method"
-       |    override def requestWith: Option[SchemaDescriptor] = $requestMat
-       |    override def responseWith: Option[SchemaDescriptor] = $responseMat
-       |  }
-       |)
+       |{
+       |  import modux.model.exporter.SchemaDescriptor
+       |  import modux.model.schema.{MParameter, MSchema, MRefSchema, MPrimitiveSchema, MArraySchema, MComposed}
+       |  modux.model.dsl.RestEntry(
+       |    modux.model.rest.RestProxy(
+       |      ignore = $isWebSocket,
+       |      pathParameter = $pathParamInf,
+       |      queryParameter = $queryParamInf,
+       |      schemas = $joinedSchemas,
+       |      path = "${normalizePath(urlValue)}",
+       |      method = "$method",
+       |      requestWith = $requestMat,
+       |      responseWith = $responseMat
+       |    )
+       |  )
+       |}
        |""".stripMargin
   }
 }
