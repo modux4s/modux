@@ -10,7 +10,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 * Minimal configurations.
 * Microservices defined by DSL.
 * Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
-* Streaming.
+* Streaming and Kafka support.
 * Websocket.
 * Serialization support.
 * Hot-Reloading.
