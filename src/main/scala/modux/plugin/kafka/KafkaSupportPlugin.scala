@@ -17,6 +17,8 @@ import scala.util.Try
 
 object KafkaSupportPlugin extends AutoPlugin {
 
+  private final val defaultKafkaVersion: String = "2.6.0"
+
   override def trigger = noTrigger
 
   override def requires: Plugins = JvmPlugin && HookPlugin
@@ -63,7 +65,7 @@ object KafkaSupportPlugin extends AutoPlugin {
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
 
-    kafkaVersion := "2.6.0",
+    kafkaVersion := defaultKafkaVersion,
     autoLoadKafka := true,
     libraryDependencies ++= Seq(moduxKafka),
     resolvers += "io.confluent" at "https://packages.confluent.io/maven/",

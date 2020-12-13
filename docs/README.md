@@ -10,7 +10,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 * Minimal configurations.
 * Microservices defined by DSL.
 * Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
-* Streaming.
+* Streaming and Kafka support.
 * Websocket.
 * Serialization support.
 * Hot-Reloading.
@@ -60,7 +60,7 @@ trait UserService extends Service with SerializationSupport{
 
   override def serviceDef: ServiceDef =
     namedAs("user-service")
-      .withCalls(
+      .entry(
         post("/user", addUser _),
         get("/user/:id", getUser _)
       )
@@ -169,7 +169,7 @@ Call.compose{request =>
 To build a service is required extends the Service trait. This interface provides a sets of useful directives. First, must be call the directive **nameAs** and then are available the directives  **withNamespace** and **withCalls**.
 
 * **namedAs(serviceName)**: creates a ServiceDef named as "serviceName".
-* **withNamespace(namespace)**: put de service under a namespace "namespace".
+* **namespace(namespace)**: put de service under a namespace "namespace".
 * **withCalls(restEntries*)**: Binds a set of RestEntry to the ServiceDef.
 
 A **Service** provides the next directives to create a **RestEntry**:
@@ -455,7 +455,7 @@ case class SimpleExample(context: Context) extends Service with SerializationSup
 
   override def serviceDef: ServiceDef = {
     namedAs("User Service")
-      .withCalls(
+      .entry(
         named("ws", ws _)
       )
     }
@@ -505,7 +505,7 @@ A set of directives and sbt keys are available to describe microservices. See ne
 
 override def serviceDef: ServiceDef = 
   namedAs("user-service")
-    .withCalls(
+    .entry(
       get("/user/:id?location&year", getUser _)
         summary "Obtains a user record using location and year"
         describe pathParam("id") as  "an user id" withExamples ("example1" -> "id1", "example2"-> "id2")
@@ -749,6 +749,43 @@ akka {
 </details>
 
 **Important**. Internally Modux creates a ActorSystem named by the **name** sbt project property. This must be taken into account when setting up a cluster. See [examples](https://www.google.com/) for details.
+
+
+## Plugins
+
+### Kafka Support
+
+To enabled it, next steps must be followed. 
+
+1. In your **build.sbt** add 
+> enablePlugins(ModuxPlugin, KafkaSupportPlugin)  
+2. Extending  **KafkaSupport** `topic` entry is added in DSL vocabulary. It receives as param
+a topic name to subscribe, and an implementation with type `Topic => Future[Unit]`.
+
+
+###### Example 
+```scala
+case class DefaultService(context: Context) extends Service with KafkaSupport {
+
+  override def serviceDef: ServiceDef = {
+    namedAs("Defaultservice")
+      .entry(
+        topic("test", topic => println(topic))
+      )
+  }
+}
+
+```
+
+#### Details
+1. This feature uses [Alpakka Kafka](https://doc.akka.io/docs/alpakka-kafka/current/). 
+2. Consumer settings are defined under configuration path `akka.kafka.consumer`. Server
+bootstrap under `akka.kafka.bootstrap` ("localhost:9092" by default). 
+#### Plugin settings
+*KafkaSupportPlugin* auto-download and start Kafka before Modux server start. The version used it's defined 
+by setting `kafkaVersion := "2.6.0"`. You can disable auto-start feature setting 
+`autoLoadKafka := false`. 
+
 
 ## Need help?
 
