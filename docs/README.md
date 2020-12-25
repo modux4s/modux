@@ -3,7 +3,7 @@
 Modux is a simple and lightweight microservice server for Scala inspired on 
 [Lagom Framework](https://www.lagomframework.com/). The aim is to speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
 
-[![version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/joacovela16/graphql4s)
+[![version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/modux4s/modux)
 
 ## Features 
 
@@ -850,7 +850,7 @@ Content-Type: application/json
 }
 ```
 
-#####Result 
+##### Result 
 ```json
 {
   "addUser": {
