@@ -1,7 +1,7 @@
 
 import sbt._
 
-ThisBuild / version := "1.1.0"
+ThisBuild / version := "1.2.1"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / scalaVersion := "2.12.12"
@@ -12,6 +12,7 @@ ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICE
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 bintrayReleaseOnPublish in ThisBuild := false
+resolvers += Resolver.mavenLocal
 
 lazy val disablingPublishingSettings =
   Seq(skip in publish := true, publishArtifact := false)
@@ -130,7 +131,7 @@ lazy val core = (project in file("./modules/core"))
   .settings(
     name := "modux-core",
     enablingPublishingSettings,
-    libraryDependencies ++= Seq()
+    libraryDependencies ++= Seq(Deps.graphql)
   )
 
 lazy val kafkaCore = (project in file("./modules/kafka"))
@@ -160,7 +161,6 @@ lazy val root = (project in file("./"))
     libraryDependencies ++= Seq(
       Deps.xbean,
       Deps.compress,
-      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12"),
-//      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
+      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
     )
   )

@@ -65,6 +65,9 @@ object Deps {
   lazy val swaggerCore2 = "io.swagger" % "swagger-core" % swaggerVersion2
   lazy val swaggerModel2 = "io.swagger" % "swagger-models" % swaggerVersion2
   lazy val swaggerJaxrs2 = "io.swagger" % "swagger-jaxrs" % swaggerVersion2
+  //************** GRAPHQL **************//
+  lazy val graphql = "jsoft.graphql4s" %% "graphql4s" % "0.1.0"
+
   //************** UTILS **************//
   lazy val ansiInterpolator = "org.backuity" %% "ansi-interpolator" % ansiInterpolatorVersion
   lazy val typeSafeConf = "com.typesafe" % "config" % typeConfigVersion

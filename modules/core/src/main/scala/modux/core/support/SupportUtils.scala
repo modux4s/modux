@@ -2,20 +2,19 @@ package modux.core.support
 
 import akka.http.scaladsl.marshalling.{Marshalling, ToByteStringMarshaller}
 import akka.http.scaladsl.model.HttpCharsets
-import modux.core.feature.{CircuitBreakExtension, RetryExtension}
+import modux.core.feature.extension.{CircuitBreakExtension, RetryExtension}
 import modux.macros.serializer.SerializationDefaults.DefaultCodecRegistry
 import modux.macros.serializer.codec.CodecRegistry
 import modux.macros.serializer.codec.providers.api.CodecEntityProvider
 import modux.model.context.Context
-import modux.model.dsl.{CodeDescriptor, CookieKind, ExampleContent, HeaderKind, ParamDescriptor, ParamKind, PathKind, QueryKind, RequestDescriptor, ResponseDescriptor, RestEntry, RestEntryExtension}
+import modux.model.dsl._
 import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 trait SupportUtils {
-
 
   private final val FINITE_DURATION: FiniteDuration = FiniteDuration(30, TimeUnit.SECONDS)
 
@@ -31,7 +30,6 @@ trait SupportUtils {
                             )(implicit context: Context): RestEntryExtension = CircuitBreakExtension(maxFailure, callTimeout, resetTimeout)
 
   protected def retry(attempts: Int = 10)(implicit context: Context): RestEntryExtension = RetryExtension(attempts)
-
 
   protected implicit def asRequestDescriptor[A](schemaDescriptor: Option[SchemaDescriptor])(implicit codecRegistry: CodecRegistry = DefaultCodecRegistry): Option[RequestDescriptor] = {
     schemaDescriptor.map { x =>

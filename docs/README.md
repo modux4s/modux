@@ -3,6 +3,8 @@
 Modux is a simple and lightweight microservice server for Scala inspired on 
 [Lagom Framework](https://www.lagomframework.com/). The aim is to speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
 
+[![version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/joacovela16/graphql4s)
+
 ## Features 
 
 
@@ -11,6 +13,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 * Microservices defined by DSL.
 * Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
 * Streaming and Kafka support.
+* [GraphQL](https://github.com/joacovela16/graphql4s).
 * Websocket.
 * Serialization support.
 * Hot-Reloading.
@@ -789,6 +792,75 @@ bootstrap under `akka.kafka.bootstrap` ("localhost:9092" by default).
 by setting `kafkaVersion := "2.6.0"`. You can disable auto-start feature setting 
 `autoLoadKafka := false`. 
 
+### GraphQL Support
+
+
+
+#### Quick example
+```scala
+
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.typesafe.scalalogging.LazyLogging
+import modux.core.api.Service
+import modux.core.feature.graphql.GraphQLSupport
+import modux.model.ServiceDef
+import modux.model.context.Context
+
+final case class Result(message: String, code: Int)
+
+final case class User(name: String, year: Int)
+
+case class DefaultService(context: Context) extends Service with GraphQLSupport with LazyLogging {
+
+  case class Query(users: () => Source[User, NotUsed], addUser: User => Result)
+
+  val queryInstance: Query = Query(
+    () => Source(List(User("Tom", (math.random() * 50).toInt))),
+    user => {
+      logger.info(user.toString)
+      Result("User added", 200)
+    }
+  )
+
+  override def serviceDef: ServiceDef = {
+    namedAs("Defaultservice")
+      .entry(
+        graphql(
+          "graphql",
+          queryInstance.asQuery, 
+          enableIntrospection = true,
+          enableSchemaValidation = true
+        )
+      )
+  }
+}
+```
+
+```http request
+POST http://localhost:9000/graphql?query={addUser($user){code}}
+Accept: application/json
+Content-Type: application/json
+
+{
+  "user": {
+    "name": "jvc",
+    "year": 2020
+  }
+}
+```
+
+#####Result 
+```json
+{
+  "addUser": {
+    "code": 200
+  }
+}
+```
+
+For more details see [GraphQL implementation](https://github.com/joacovela16/graphql4s) or 
+[GraphQL Spec](https://graphql.org/).
 
 ## Need help?
 

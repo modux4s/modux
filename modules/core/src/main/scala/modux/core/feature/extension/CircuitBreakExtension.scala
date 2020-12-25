@@ -1,6 +1,4 @@
-package modux.core.feature
-
-import java.util.concurrent.TimeUnit
+package modux.core.feature.extension
 
 import akka.pattern.CircuitBreaker
 import modux.model.context.Context
