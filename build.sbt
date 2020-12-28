@@ -1,7 +1,7 @@
 
 import sbt._
 
-ThisBuild / version := "1.2.1"
+ThisBuild / version := "1.2.2-SNAPSHOT"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / scalaVersion := "2.12.12"
@@ -131,7 +131,7 @@ lazy val core = (project in file("./modules/core"))
   .settings(
     name := "modux-core",
     enablingPublishingSettings,
-    libraryDependencies ++= Seq(Deps.graphql)
+    libraryDependencies ++= Seq(Deps.graphql, Deps.pac4j, Deps.pac4jOAuth, Deps.caffeine)
   )
 
 lazy val kafkaCore = (project in file("./modules/kafka"))
@@ -139,7 +139,7 @@ lazy val kafkaCore = (project in file("./modules/kafka"))
   .settings(
     name := "modux-kafka-core",
     enablingPublishingSettings,
-    libraryDependencies ++= Seq( Deps.akkaKafka)
+    libraryDependencies ++= Seq(Deps.akkaKafka)
   )
 
 lazy val server = (project in file("./modules/server"))

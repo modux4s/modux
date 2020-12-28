@@ -1,7 +1,6 @@
 package modux.macros.utils
 
-import akka.http.scaladsl.model.HttpHeader.ParsingResult
-import akka.http.scaladsl.model.headers.{Cookie, HttpCookie, `Set-Cookie`}
+import akka.http.scaladsl.model.headers.`Set-Cookie`
 import akka.http.scaladsl.model.{ContentTypes, HttpHeader, HttpRequest}
 import akka.http.scaladsl.server.{Directive0, Directives}
 import modux.model.header._
@@ -22,9 +21,10 @@ object AkkaUtils extends Directives {
   }
 
   def mapRequest(req: HttpRequest): RequestHeader = {
-    RequestHeaderImpl(
+
+    RequestHeader(
       req.method.value,
-      req.uri.toString(),
+      req.getUri(),
       req.headers.map(x => x.name() -> x.value()).toMap,
       req.cookies.map(x => x.name -> x.value).toMap,
       Set.empty
@@ -34,14 +34,7 @@ object AkkaUtils extends Directives {
   def mapResponse(responseHeader: ResponseHeader): Directive0 = {
     mapResponse { response =>
 
-      val header: List[HttpHeader] = responseHeader.headers.flatMap { case (k, v) =>
-        HttpHeader.parse(k, v) match {
-          case ParsingResult.Ok(h, _) => Option(h)
-          case x =>
-            x.errors.foreach(y => logger.info(y.summary, y.detail))
-            None
-        }
-      }.toList
+      val header: List[HttpHeader] = responseHeader.headers
 
       val extraHeaders: List[`Set-Cookie`] = responseHeader.cookies.values.map(x => `Set-Cookie`(x)).toList
 

@@ -99,7 +99,7 @@ object ModuxPlugin extends AutoPlugin {
       if (compilingState.get()) {
         Def.task[Unit] {
           compilingState.set(false)
-          (compile in Compile).value
+          val _ = (compile in Compile).value
           compilingState.set(true)
           Future {
             delayState.set(true)
@@ -253,9 +253,9 @@ object ModuxPlugin extends AutoPlugin {
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
-        Seq(moduxServer, moduxOpenAPIV2)
+        Seq(moduxServer, moduxOpenAPIV2) ++ webSecurityDeps
       } else {
-        Seq(moduxServer, moduxOpenAPIV3)
+        Seq(moduxServer, moduxOpenAPIV3) ++ webSecurityDeps
       }
     }.value,
     mainClass in Compile := Option("modux.core.server.ProdServer"),

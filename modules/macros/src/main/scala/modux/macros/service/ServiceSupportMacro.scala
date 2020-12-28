@@ -5,10 +5,9 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import modux.macros.MacroUtils._
 import modux.macros.utils.SchemaUtils
-import modux.model._
 import modux.model.dsl.RestEntry
 import modux.model.exporter.SchemaDescriptor
-import modux.model.rest.{AsPath, AsPathParam, Path, PathMetadata}
+import modux.model.rest._
 import modux.model.ws.WSEvent
 
 import scala.collection.mutable
@@ -93,19 +92,21 @@ object ServiceSupportMacro {
     import c.universe._
 
     //************** INITIALIZATION **************//
-    val argsMap: Map[String, c.universe.ValDef] = funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
+    val argsMap: Map[String, c.universe.ValDef] = {
+      funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
+    }
 
     val isCompile: Boolean = sys.props.get("modux.mode").forall(_ == "compile")
     lazy val urlValue: String = c.eval[String](url)
     lazy val parsedPath: PathMetadata = extractVariableName(c)(urlValue)
-    lazy val parsedArgumentsMap: Map[String, AsPathParam] = parsedPath.parsedArgumentsMap
+    lazy val parsedArgumentsMap: Map[String, Path] = parsedPath.parsedArgumentsMap
     val functionRefClassName: String = funcRef.tpe.typeSymbol.fullName
 
     if (!functionRefClassName.startsWith("scala.Function")) {
       c.abort(c.enclosingPosition, s"A function must be passed as second parameter. You pass '$functionRefClassName'")
     } else if (parsedArgumentsMap.size + parsedPath.queryParams.size != argsMap.size) {
       c.abort(c.enclosingPosition, s"Arguments lengths doesn't match with path arguments length in path '$urlValue'.")
-    } else if (!argsMap.keySet.forall(x => parsedPath.queryParams.contains(x) || parsedArgumentsMap.contains(x))) {
+    } else if (!(argsMap.size == 1 && parsedPath.hasAnything && parsedArgumentsMap.size == 1) && !argsMap.keySet.forall(x => parsedPath.queryParams.contains(x) || parsedArgumentsMap.contains(x))) {
       c.abort(c.enclosingPosition, s"Some arguments name doesn't match with the path arguments.")
     } else if (parsedPath.queryParams.isEmpty && parsedPath.pathParams.isEmpty) {
       c.abort(c.enclosingPosition, "Invalid path")
@@ -113,7 +114,10 @@ object ServiceSupportMacro {
 
     val treeBuild: String = {
       if (isCompile) {
-        serverMode(c)(method, urlValue, funcRef, parsedPath)
+        val r = serverMode(c)(method, urlValue, funcRef, parsedPath)
+
+        c.echo(c.enclosingPosition, r)
+        r
       } else {
         exportMode(c)(method, urlValue, funcRef, parsedPath)
       }
@@ -145,22 +149,27 @@ object ServiceSupportMacro {
       case _ => c.abort(c.enclosingPosition, s"Supported type for path params: Int, String and Double. Received $tag.")
     }
 
-    def iterator(params: Seq[Path], argsMap: Map[String, c.universe.ValDef]): Seq[String] = params match {
-      case Nil => Nil
-      case x +: xs =>
+    def pathBuilder(params: Seq[Path], argsMap: Map[String, c.universe.ValDef]): String = {
 
-        x match {
-          case AsPath(name) => s""" "$name" """ +: iterator(xs, argsMap)
-          case AsPathParam(name) =>
+      def iterator(params: Seq[Path], argsMap: Map[String, c.universe.ValDef]): Seq[String] = params match {
+        case Nil => Nil
+        case x +: xs =>
 
-            argsMap.get(name) match {
-              case Some(value) => getType(value.tpt.tpe) +: iterator(xs, argsMap)
-              case None => c.abort(c.enclosingPosition, s"Missing argument $name")
-            }
-        }
+          x match {
+            case AsPath(name) => s""" "$name" """ +: iterator(xs, argsMap)
+            case AsPathParam(name) =>
+
+              argsMap.get(name) match {
+                case Some(value) => getType(value.tpt.tpe) +: iterator(xs, argsMap)
+                case None => c.abort(c.enclosingPosition, s"Missing argument $name")
+              }
+            case AnythingPath => Seq("  Remaining ")
+            case AsRegexPath(name, regex) => c.abort(c.enclosingPosition, s"Missing implementation of RegexPath")
+          }
+      }
+
+      iterator(params, argsMap).mkString(" / ")
     }
-
-    def pathBuilder(params: Seq[Path], argsMap: Map[String, c.universe.ValDef]): String = iterator(params, argsMap).mkString(" / ")
 
     def getConverter(t: c.Type): String = {
       val str: String = t.toString
@@ -181,7 +190,8 @@ object ServiceSupportMacro {
     }
 
     val argsName: Seq[String] = funcRef.collect { case t: ValDef => t }.map(_.name.toString)
-    val argsMap: Map[String, c.universe.ValDef] = funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
+    val argsSeq: List[c.universe.ValDef] = funcRef.collect { case t: ValDef => t }
+    val argsMap: Map[String, c.universe.ValDef] = argsSeq.map(x => x.name.toString -> x).toMap
 
     val requestType: c.universe.Type = callType.typeArgs.head
     val responseType: c.universe.Type = callType.typeArgs.last
@@ -241,7 +251,7 @@ object ServiceSupportMacro {
           s"""
              |extractDataBytes{__src__ =>
              |  extractRequest{__request__ =>
-             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Empty))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
@@ -257,7 +267,7 @@ object ServiceSupportMacro {
              |  import modux.macros.utils.SerializationUtil
              |
              |  entityAkka(SerializationUtil.moduxAsSource[$requestTypeStr]){__src__ =>
-             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Empty))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
@@ -273,7 +283,7 @@ object ServiceSupportMacro {
         if (isEmptyRequest) {
           s"""
              |extractRequest{__request__ =>
-             |  val srv = AkkaUtils.check(serviceCall($requestTypeStr, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |  val srv = AkkaUtils.check(serviceCall($requestTypeStr, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Empty))
              |  onComplete($onCompleteTpl){
              |    case Failure(e) =>
              |      $errorTpl
@@ -285,7 +295,7 @@ object ServiceSupportMacro {
           s"""
              |extractRequest{ __request__ =>
              |  entityAkka(as[$requestTypeStr]){ __entity__ =>
-             |    val srv = AkkaUtils.check(serviceCall(__entity__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |    val srv = AkkaUtils.check(serviceCall(__entity__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Empty))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
@@ -309,8 +319,27 @@ object ServiceSupportMacro {
     }
 
     def bodyTpl: String = {
-      val parsedArguments: Seq[AsPathParam] = parsedPath.parsedArguments
-      val argsType: String = parsedArguments.flatMap(x => argsMap.get(x.name)).map(x => s""" ${x.name}: ${x.tpt.tpe} """).mkString("(", ",", ") =>")
+
+      val parsedArgumentsMap: Map[String, Path] = parsedPath.parsedArgumentsMap
+      val parsedArguments: Seq[Path] = parsedPath.parsedArguments
+
+      val additionalArgs: Seq[String] = argsSeq
+        .find { x =>
+          val name: String = x.name.toString
+          !parsedArgumentsMap.contains(name)
+        }
+        .fold(Seq.empty[String]) { x =>
+          val name: String = x.name.toString
+          Seq(s""" $name: String """)
+        }
+
+      val argsType: String = (
+        parsedArguments
+          .flatMap(x => argsMap.get(x.name))
+          .map(x => s""" ${x.name}: ${x.tpt.tpe} """) ++ additionalArgs
+        )
+        .mkString("(", ",", ") =>")
+
       val pathArguments: String = if (parsedArguments.isEmpty) "" else argsType
       val argumentsCall: String = if (hasNoArgs) "" else argsName.mkString("(", ", ", ")")
 
@@ -320,6 +349,7 @@ object ServiceSupportMacro {
         if (isWebSocket) {
           entityTpl
         } else {
+
           s"""
              |val serviceCall: ${callType.toString} = callback$argumentsCall
              |$entityTpl
@@ -385,13 +415,20 @@ object ServiceSupportMacro {
       //************** paths params processing **************//
 
       s"""
-         |{$pathArguments
-         |  $queryParamTpl
-         |}
+         |    {$pathArguments
+         |      $queryParamTpl
+         |    }
          |""".stripMargin
     }
 
-    def tpl: String = s"$pathTpl($bodyTpl)"
+    val tpl: String = {
+
+      s"""
+         |ignoreTrailingSlash  {
+         |  $pathTpl$bodyTpl
+         |}
+         |""".stripMargin
+    }
 
     s"""
        |modux.model.dsl.RestEntry(
@@ -466,7 +503,7 @@ object ServiceSupportMacro {
         val head: c.universe.Type = requestType.typeArgs.head
         schemaUtil.extractArraySchema(head, storeRef)
       } else {
-        val _ = schemaUtil.iterator(requestType, storeRef, false, false)
+        val _ = schemaUtil.iterator(requestType, storeRef, isRequired = false, isNullable = false)
         schemaUtil.extractSchema(requestType, storeRef)
       }
     }
@@ -478,7 +515,7 @@ object ServiceSupportMacro {
         val head: c.universe.Type = responseType.typeArgs.head
         schemaUtil.extractArraySchema(head, storeRef)
       } else {
-        val _ = schemaUtil.iterator(responseType, storeRef, false, false)
+        val _ = schemaUtil.iterator(responseType, storeRef, isRequired = false, isNullable = false)
         schemaUtil.extractSchema(responseType, storeRef)
       }
     }

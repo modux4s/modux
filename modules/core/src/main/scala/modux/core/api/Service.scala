@@ -7,4 +7,5 @@ import modux.macros.service.MethodDSL
 import modux.model.context.ContextSupport
 import modux.model.service.CallDirectives
 
+
 trait Service extends CallDirectives with RegisterDSL with MethodDSL with ResponseExtensions with FutureImplicits with ContextSupport with SchemaSupport

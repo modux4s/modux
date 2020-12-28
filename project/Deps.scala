@@ -3,7 +3,6 @@ import sbt._
 object Deps {
 
   //************** VERSIONS **************//
-  private final val kafkaVersion = "2.6.0"
   private final val akkaVersion: String = "2.6.10"
   private final val akkaHTTPVersion: String = "10.2.2"
   private final val scalaLoggingVersion: String = "3.9.2"
@@ -26,7 +25,8 @@ object Deps {
   private final val compressVersion: String = "1.20"
   private final val akkaKafkaVersion: String = "2.0.5"
   private final val akkaCorsVersion: String = "1.0.0"
-
+  private final val pac4jVersion: String = "4.3.0"
+  private final val caffeineVersion: String = "2.8.8"
   //************** DI **************//
   lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
   lazy val xbean = "org.apache.xbean" % "xbean-classloader" % xbeanVersion
@@ -55,8 +55,11 @@ object Deps {
   lazy val woodstoxCore = "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
   lazy val compress = "org.apache.commons" % "commons-compress" % compressVersion
 
+  //************** WEB SECURITY **************//
+  lazy val pac4j = "org.pac4j" % "pac4j-core" % pac4jVersion
+  lazy val pac4jOAuth = "org.pac4j" % "pac4j-oauth" % pac4jVersion
   //************** KAFKA **************//
-  lazy val akkaKafka =  "com.typesafe.akka" %% "akka-stream-kafka" % akkaKafkaVersion
+  lazy val akkaKafka = "com.typesafe.akka" %% "akka-stream-kafka" % akkaKafkaVersion
   //************** DOCUMENTATION **************//
   lazy val swaggerCore3 = "io.swagger.core.v3" % "swagger-core" % swaggerVersion3
   lazy val swaggerModel3 = "io.swagger.core.v3" % "swagger-models" % swaggerVersion3
@@ -73,6 +76,10 @@ object Deps {
   lazy val typeSafeConf = "com.typesafe" % "config" % typeConfigVersion
   lazy val configScala = "com.github.andyglow" %% "typesafe-config-scala" % configScalaVersion
   lazy val javaxrs = "javax.ws.rs" % "javax.ws.rs-api" % javaxrsVersion3
+
+  // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
+  lazy val caffeine = "com.github.ben-manes.caffeine" % "caffeine" % caffeineVersion
+
   //************** TESTING **************//
   lazy val scalactic = "org.scalactic" %% "scalactic" % scalaTestVersion
   lazy val scalatest = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
