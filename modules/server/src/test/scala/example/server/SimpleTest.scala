@@ -3,8 +3,12 @@ package example.server
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
+import jsoft.graphql.model.Binding
 import modux.core.api.Service
-import modux.core.feature.graphql.GraphQLSupport
+import modux.core.feature.graphql.{GraphQLInterpreter, GraphQLSupport}
 import modux.core.feature.security.SecuritySupport
 import modux.core.feature.security.model.SecurityService
 import modux.macros.serializer.SerializationSupport
@@ -16,9 +20,9 @@ import org.pac4j.core.client.Clients
 import org.pac4j.core.config.Config
 import org.pac4j.oauth.client.TwitterClient
 
-import java.io.{File, InputStream}
+import scala.io.BufferedSource
 
-case class SimpleTest(context: Context) extends Service with GraphQLSupport with SerializationSupport with SecuritySupport {
+case class SimpleTest() extends Service with GraphQLSupport with SerializationSupport with SecuritySupport {
 
   implicit val userCodec: Codec[User] = codecFor[User]
 
@@ -36,38 +40,66 @@ case class SimpleTest(context: Context) extends Service with GraphQLSupport with
   val queryInstance: Query = Query(() => User("pepe", 12))
 
   def getUser(): Call[Unit, Source[User, NotUsed]] = securityService.withAuthentication() { auth =>
-    Call.empty[Source[User, NotUsed]] {
+    println(auth)
+    onCall {
       Source(List(User("pepe", 120)))
     }
   }
 
-  def getStaticHome(): Call[NotUsed, Unit] = Call.handleRequest { req =>
+  def getStaticHome(id: String): Call[NotUsed, Unit] = doneWith {
     println("OK")
   }
 
-  def getStatic(basePath: String)(remaining: String): Call[Unit, Source[ByteString, NotUsed]] = Call.handleRequest [Unit, Source[ByteString, NotUsed]]{ req =>
+  def func1(): () => Call[Option[String], Unit] = () => {
+    extractInput { in =>
+      doneWith {
+        println(in)
+      }
+    }
+  }
 
-    val string: InputStream = this.getClass.getClassLoader.getResourceAsStream(basePath+(if (remaining.isEmpty) "/index.html" else remaining))
+  def getStatic(basePath: String): String => Call[Unit, Source[ByteString, NotUsed]] = remaining => {
+    println(remaining)
+    onCall {
+      mapResponse(_.asHtml) {
+        Option(this.getClass.getClassLoader.getResourceAsStream(basePath + (if (remaining.isEmpty) "/index.html" else remaining))) match {
+          case Some(string) =>
+            val src: BufferedSource = scala.io.Source.fromInputStream(string)
+            Source.fromIterator(() => src.getLines()).map(x => ByteString(x))
+          case None => NotFound
+        }
+      }
+    }
+  }
 
-//    val file = new File(string )
-    val src = scala.io.Source.fromInputStream(string)
-    Source.fromIterator(()=>src.getLines()).map(x=> ByteString(x))
-  }.mapResponse(x=>x.asHtml)
+  def func2(p1: String, p2: Option[String], p3: List[String]): Call[Unit, Unit] = doneWith {
+    println(p1 + p2 + p3)
+  }
+
+  def func2Alt: (String, Option[String], List[String]) => Call[Unit, Unit] = (p1, p2, p3) => doneWith {
+    println(p1 + p2 + p3)
+  }
+
+  val graphQLService: GraphQLInterpreter = graphql(queryInstance.asQuery)
+
+  def secureGraphQL(): Call[Option[String], Source[ByteString, NotUsed]] = {
+    securityService.secure()(graphQLService.service)
+  }
 
   override def serviceDef: ServiceDef = {
 
-    //    println(getClass.getClassLoader.getResource("./public/index.html"))
     namedAs("testing")
       .entry(
-        //        get("/callback", securityService.callback("/home")),
-        //        post("/callback", securityService.callback("/home")),
-        //        get("/user", getUser _),
+        get("/callback", securityService.callback("/home")),
+        post("/callback", securityService.callback("/home")),
+        get("/user", getUser _),
         //        statics("/home", "public"),
-        namespace("/home")(
-          //        get("/home", getStaticHome _),
-          get("*", getStatic("public") _)
-        ),
-        //        graphql("graphql", queryInstance.asQuery)
+        //        get("/api?p1&p2&p3", func2Alt),
+        //        namespace("/home")(
+        //          get("/home/:id", getStaticHome _),
+        //        get("/home/*", assets),
+        //        ),
+        call("graphql", secureGraphQL _),
       )
   }
 }

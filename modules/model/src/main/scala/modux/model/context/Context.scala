@@ -3,6 +3,7 @@ package modux.model.context
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicActorSystem}
+import akka.stream.Materializer
 import com.typesafe.config.Config
 
 import scala.concurrent.ExecutionContext
@@ -17,6 +18,7 @@ trait Context {
   val actorSystem: ActorSystem[Nothing]
   val executionContext: ExecutionContext
   val applicationLoader: ClassLoader
+  lazy val materializer: Materializer = Materializer(actorSystem)
 
   def contextThread[T](f: => T): T = {
     val thread: Thread = Thread.currentThread

@@ -3,13 +3,13 @@ package modux.core.feature.graphql
 import akka.NotUsed
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.{Directives, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import jsoft.graphql.core.{EncoderTypeDerivation, GraphQL, StructTypeDerivation}
 import jsoft.graphql.model.{Binding, Interpreter}
-import modux.model.dsl.{RestEntry, RestEntryExtension}
-import modux.model.rest.RestInstance
+import modux.model.service.Call
+
+import scala.concurrent.ExecutionContext
 
 trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation {
 
@@ -23,29 +23,28 @@ trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation {
     )
   }
 
-  def graphql(name: String, binding: Binding, enableSchemaValidation: Boolean = true, enableIntrospection: Boolean = true): RestEntry = {
-    import akka.http.scaladsl.server.Directives._
+  def graphql(binding: => Binding, enableSchemaValidation: Boolean = true, enableIntrospection: Boolean = true)(implicit ec: ExecutionContext): GraphQLInterpreter = {
+    import modux.model.service.CallDirectives._
     val interpreter: Interpreter = GraphQL.interpreter(binding, enableSchemaValidation = enableSchemaValidation, enableIntrospection = enableIntrospection)
 
-    RestEntry(
-      new RestInstance {
-        override def route(extensions: Seq[RestEntryExtension]): Route = {
-          path(name) {
+    val impl: Call[Option[String], Source[ByteString, NotUsed]] = extractMethod { method =>
 
-            parameterMap { queryParams =>
-              get {
-                complete(200, interpreter.asAkkaSource(queryParams, None))
-              } ~
-                post {
-                  entity(as[Option[String]]) { body =>
-                    complete(200, interpreter.asAkkaSource(queryParams, body))
-                  }
-                }
-            }
+      val methodValue: String = method.value
+
+      if (methodValue == "GET" || methodValue == "POST") {
+        handleRequest { req =>
+          extractInput { input =>
+            interpreter.asAkkaSource(req.uri.query().toMap, input)
           }
         }
+      } else {
+        ???
       }
-    )
+    }
+
+    new GraphQLInterpreter {
+      override def service: Call[Option[String], Source[ByteString, NotUsed]] = impl
+    }
 
   }
 

@@ -1,6 +1,6 @@
 package modux.model.rest
 
-sealed trait Path{
+sealed trait Path {
   def name: String
 }
 
@@ -11,7 +11,7 @@ final case class AsPath(name: String) extends Path
 final case class AsPathParam(name: String) extends Path
 
 /** handle * at the end */
-object AnythingPath extends Path{
+object AnythingPath extends Path {
   val name: String = "*"
 }
 
@@ -21,8 +21,8 @@ final case class AsRegexPath(name: String, value: String) extends Path
 final case class PathMetadata(url: String, pathParams: Seq[Path], queryParams: Seq[String]) {
   lazy val parsedArguments: Seq[Path] = pathParams.collect {
     case x: AsPathParam => x
-    case  AnythingPath => AnythingPath
-    case x:AsRegexPath => x
+    case AnythingPath => AnythingPath
+    case x: AsRegexPath => x
   }
 
   lazy val parsedArgumentsMap: Map[String, Path] = parsedArguments.map(x => x.name -> x).toMap

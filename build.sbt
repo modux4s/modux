@@ -4,15 +4,15 @@ import sbt._
 ThisBuild / version := "1.2.2-SNAPSHOT"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
-ThisBuild / scalaVersion := "2.12.12"
+ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
 ThisBuild / resolvers += "io.confluent" at "https://packages.confluent.io/maven/"
+ThisBuild / resolvers += Resolver.bintrayRepo("jsoft", "maven")
 ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 bintrayReleaseOnPublish in ThisBuild := false
-resolvers += Resolver.mavenLocal
 
 lazy val disablingPublishingSettings =
   Seq(skip in publish := true, publishArtifact := false)
@@ -56,6 +56,9 @@ lazy val common = (project in file("./modules/common"))
       Deps.jacksonYaml,
       Deps.jacksonXml,
       Deps.woodstoxCore,
+      Deps.pac4jCore,
+      Deps.pac4jOAuth,
+      Deps.pac4jHttp
     ),
 
   )
@@ -122,6 +125,9 @@ lazy val macros = (project in file("./modules/macros"))
       Deps.jacksonDataformatXml,
       Deps.aaltoXmlParser,
       Deps.jacksonModuleScala,
+      Deps.macwireMacros,
+      Deps.macwireProxy,
+      Deps.macwireUtils,
     )
   )
 
@@ -131,7 +137,7 @@ lazy val core = (project in file("./modules/core"))
   .settings(
     name := "modux-core",
     enablingPublishingSettings,
-    libraryDependencies ++= Seq(Deps.graphql, Deps.pac4j, Deps.pac4jOAuth, Deps.caffeine)
+    libraryDependencies ++= Seq(Deps.graphql, Deps.caffeine)
   )
 
 lazy val kafkaCore = (project in file("./modules/kafka"))
@@ -150,17 +156,24 @@ lazy val server = (project in file("./modules/server"))
     enablingPublishingSettings,
   )
 
+lazy val printVersion = taskKey[Unit]("testing")
+lazy val printVersionImpl = Def.task {
+  println(Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12").toString())
+  println(scalaBinaryVersion.value)
+  println(crossVersion.value)
+}
 
 lazy val root = (project in file("./"))
   .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore, plug)
   .dependsOn(server, devShared, plug)
   .settings(
+    printVersion := printVersionImpl.value,
     sbtPlugin := true,
     name := "modux-plugin",
     enablingPublishingSettings,
     libraryDependencies ++= Seq(
       Deps.xbean,
       Deps.compress,
-      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
+      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", scalaBinaryVersion.value)
     )
   )

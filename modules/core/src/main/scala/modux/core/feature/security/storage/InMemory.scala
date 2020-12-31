@@ -6,9 +6,7 @@ import org.pac4j.core.context.session.SessionStore
 
 import java.time.Duration
 import java.util.{Optional, UUID}
-import java.util.concurrent.TimeUnit
 import scala.compat.java8.OptionConverters.RichOptionForJava8
-import scala.concurrent.duration.FiniteDuration
 
 final case class InMemory() extends SessionStorage {
 
@@ -17,35 +15,32 @@ final case class InMemory() extends SessionStorage {
     .expireAfterAccess(Duration.ofMinutes(5))
     .build()
 
-  override val sessionLifetime: FiniteDuration = FiniteDuration(8, TimeUnit.HOURS)
-
-  override def createSessionIfNeeded(sessionKey: String): Boolean = {
-    cache.get(sessionKey, _ => Map.empty[String, AnyRef])
-    true
-  }
-
-  override def sessionExists(sessionKey: String): Boolean = {
-    Option(cache.getIfPresent(sessionKey)).isDefined
-  }
-
   override def getOrCreateSessionId(context: ModuxWebContext): String = {
-    Option(context.getSessionID).getOrElse(UUID.randomUUID().toString)
+    val id: String = Option(context.sessionId).getOrElse(UUID.randomUUID().toString)
+    cache.get(id, _ => Map.empty[String, AnyRef])
+    id
   }
 
   override def get(context: ModuxWebContext, key: String): Optional[AnyRef] = {
-    createSessionIfNeeded(context.getSessionID)
-    Option(cache.getIfPresent(context.getSessionID)).flatMap(_.get(key)).asJava
+//    Option(cache.getIfPresent(context.sessionId)).flatMap(_.get(key)).asJava
+    {
+      for{
+        id <- Option(context.sessionId)
+        ref <- Option(cache.getIfPresent(id)).flatMap(_.get(key))
+      } yield ref
+    }.asJava
   }
 
   override def set(context: ModuxWebContext, key: String, value: AnyRef): Unit = {
-    Option(cache.getIfPresent(context.getSessionID))
+    val sessionId: String = context.sessionId
+    Option(cache.getIfPresent(sessionId))
       .foreach { current =>
-        cache.put(context.getSessionID, current + (key -> value))
+        cache.put(sessionId, current + (key -> value))
       }
   }
 
   override def destroySession(context: ModuxWebContext): Boolean = {
-    cache.invalidate(context.getSessionID)
+    cache.invalidate(context.sessionId)
     true
   }
 
@@ -54,7 +49,10 @@ final case class InMemory() extends SessionStorage {
   override def buildFromTrackableSession(context: ModuxWebContext, trackableSession: Any): Optional[SessionStore[ModuxWebContext]] = Optional.empty()
 
   override def renewSession(context: ModuxWebContext): Boolean = {
-    cache.put(context.getSessionID, cache.getIfPresent(context.getSessionID))
+    val sessionId: String = context.sessionId
+    cache.put(sessionId, cache.getIfPresent(sessionId))
     true
   }
+
+  override def existsSession(sessionId: String): Boolean = Option(cache.getIfPresent(sessionId)).isDefined
 }

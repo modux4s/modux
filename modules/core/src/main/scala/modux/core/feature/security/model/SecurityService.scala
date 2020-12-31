@@ -15,13 +15,14 @@ trait SecurityService {
                 enforceFormEncoding: Boolean = false,
                 existingContext: Option[ModuxWebContext] = None,
                 setCsrfCookie: Boolean = true
-              ): () => Call[Unit, NotUsed]
+              ): () => Call[Unit, Unit]
 
-  def logout(): Call[Unit, NotUsed]
+  def logout(): Call[Unit, Unit]
 
   def secure[A, B](clients: String = null, multiProfile: Boolean = true, authorizers: String = "")(inner: => Call[A, B]): Call[A, B] = {
     withAuthentication(clients, multiProfile, authorizers)(_ => inner)
   }
 
   def withAuthentication[A, B](clients: String = null, multiProfile: Boolean = true, authorizers: String = "")(inner: AuthenticatedRequest => Call[A, B]): Call[A, B]
+
 }

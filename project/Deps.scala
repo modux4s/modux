@@ -3,6 +3,7 @@ import sbt._
 object Deps {
 
   //************** VERSIONS **************//
+  private final val macwireVersion: String = "2.3.7"
   private final val akkaVersion: String = "2.6.10"
   private final val akkaHTTPVersion: String = "10.2.2"
   private final val scalaLoggingVersion: String = "3.9.2"
@@ -21,7 +22,6 @@ object Deps {
   private final val swaggerVersion2: String = "1.6.2"
   private final val javaxrsVersion3: String = "2.1.1"
   private final val woodstoxVersion: String = "6.2.1"
-  private final val kafkaSerializerVersion: String = "6.0.1"
   private final val compressVersion: String = "1.20"
   private final val akkaKafkaVersion: String = "2.0.5"
   private final val akkaCorsVersion: String = "1.0.0"
@@ -44,6 +44,11 @@ object Deps {
   lazy val self4j = "org.slf4j" % "slf4j-api" % self4jVersion
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % logbackClassicVersion
   lazy val logbackCore = "ch.qos.logback" % "logback-core" % logbackClassicVersion
+
+  //************** DI **************//
+  lazy val macwireMacros =  "com.softwaremill.macwire" %% "macros" % macwireVersion
+  lazy val macwireUtils = "com.softwaremill.macwire" %% "util" % macwireVersion
+  lazy val macwireProxy = "com.softwaremill.macwire" %% "proxy" % macwireVersion
   //************** SERIALIZATION **************//
   lazy val jacksonDataformatXml = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % jacksonVersion
   lazy val jacksonModuleScala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion
@@ -56,8 +61,9 @@ object Deps {
   lazy val compress = "org.apache.commons" % "commons-compress" % compressVersion
 
   //************** WEB SECURITY **************//
-  lazy val pac4j = "org.pac4j" % "pac4j-core" % pac4jVersion
+  lazy val pac4jCore = "org.pac4j" % "pac4j-core" % pac4jVersion
   lazy val pac4jOAuth = "org.pac4j" % "pac4j-oauth" % pac4jVersion
+  lazy val pac4jHttp = "org.pac4j" % "pac4j-http" % pac4jVersion
   //************** KAFKA **************//
   lazy val akkaKafka = "com.typesafe.akka" %% "akka-stream-kafka" % akkaKafkaVersion
   //************** DOCUMENTATION **************//

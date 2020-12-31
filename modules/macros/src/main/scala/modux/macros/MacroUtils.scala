@@ -101,4 +101,31 @@ object MacroUtils {
 
     PathMetadata(finalUrl, parsePartialUrl(pathParams), parseQueryParam(queryParams))
   }
+
+  def extractSubType(tpe: String): String = {
+    val start: Int = tpe.indexOf('[')
+    val end: Int = tpe.lastIndexOf(']')
+    if (start > -1 && end > -1) {
+      tpe.substring(start + 1, end)
+    } else {
+      tpe
+    }
+  }
+
+  def extractSuperType(tpe: String): String = {
+    val start: Int = tpe.indexOf('[')
+    if (start > -1) {
+      tpe.substring(0, start)
+    } else {
+      tpe
+    }
+  }
+
+  def isIterable(tpe: String): Boolean = {
+
+    SUPPORTED_ITERABLE.exists { x =>
+      println(x)
+      tpe.startsWith(x)
+    }
+  }
 }

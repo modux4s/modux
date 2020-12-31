@@ -1,8 +1,6 @@
 package modux.model.dsl
 
-import modux.model.ServiceEntry
-
-final case class NameSpacedEntry(ns:String, restEntry: Seq[RestEntry]) extends ServiceEntry {
+final case class NameSpacedEntry(namespace:String, entries: Seq[RestEntry]) extends MultiRestEntry {
   override def onStart(): Unit = {}
 
   override def onStop(): Unit = {}

@@ -79,9 +79,9 @@ object Exporter {
             .flatMap {
               case x: NameSpacedEntry =>
                 x
-                  .restEntry
+                  .entries
                   .collect { case y: RestEntry => (y, y.restService) }
-                  .collect { case (z, y: RestProxy) => (z, y.copy(x.ns + y.path)) }
+                  .collect { case (z, y: RestProxy) => (z, y.copy(x.namespace + y.path)) }
 
               case x: RestEntry =>
                 x.restService match {
