@@ -12,7 +12,7 @@ import org.slf4j.helpers.SubstituteLoggerFactory
 
 private[modux] object DevServer {
 
-  private var serverRef: AtomicReference[ModuxServer] = new AtomicReference[ModuxServer]()
+  private val serverRef: AtomicReference[ModuxServer] = new AtomicReference[ModuxServer]()
   private var lastTimeLogFileModified: Long = 0
   private var firstTime: Boolean = true
 

@@ -6,7 +6,7 @@ import java.nio.file.{Path => JPath}
 import com.typesafe.sbt.packager.MappingsHelper.directory
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 import modux.plug.HookPlugin
-import modux.plugin.core.{InProgress, ModuxState, ModuxUtils, ServerReloader}
+import modux.plugin.core.{CommonSettings, InProgress, ModuxState, ModuxUtils, ServerReloader}
 import modux.plugin.web.ModuxWeb
 import modux.shared.PrintUtils
 import sbt.Keys._
@@ -24,9 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-object ModuxPlugin extends AutoPlugin {
-
-  private final val CONFIG_DIR: String = "conf"
+object ModuxService extends AutoPlugin {
   private final val store: CacheStore = sbt.util.CacheStore(file("./target/streams/modux"))
   private final val delayState: AtomicBoolean = new AtomicBoolean(false)
   private final val compilingState: AtomicBoolean = new AtomicBoolean(true)
@@ -39,9 +37,9 @@ object ModuxPlugin extends AutoPlugin {
     store.write(s)
   }
 
-  override def requires: Plugins = JvmPlugin && ModuxWeb && JavaAppPackaging && HookPlugin
+  override def requires: Plugins = JvmPlugin && JavaAppPackaging && HookPlugin
 
-  object autoImport extends ModuxPluginSettings {
+  object autoImport extends ModuxServiceSettings {
   }
 
   import autoImport._
@@ -148,8 +146,8 @@ object ModuxPlugin extends AutoPlugin {
     val depsClasspath: Classpath = (dependencyClasspath in(Compile, run)).value
     val cd: File = (classDirectory in(Compile, run)).value
     val rd: Seq[File] = Seq(
-      (resourceDirectory in(Compile, run)).value,
-      baseDirectory.value / CONFIG_DIR
+      (resourceDirectory in(Compile, run)).value/*,
+      baseDirectory.value / CONFIG_DIR*/
     )
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
@@ -249,25 +247,25 @@ object ModuxPlugin extends AutoPlugin {
     moduxExportYaml := saveExport("yaml").value,
     moduxExportJson := saveExport("json").value,
     moduxOpenAPIVersion := 3,
-    mappings in Universal ++= directory(CONFIG_DIR),
+//    mappings in Universal ++= directory(CONFIG_DIR),
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
-        Seq(ModuxPluginDefaults.moduxServer, ModuxPluginDefaults.moduxOpenAPIV2)
+        Seq(CommonSettings.moduxServer, CommonSettings.moduxOpenAPIV2)
       } else {
-        Seq(ModuxPluginDefaults.moduxServer, ModuxPluginDefaults.moduxOpenAPIV3)
+        Seq(CommonSettings.moduxServer, CommonSettings.moduxOpenAPIV3)
       }
     }.value,
-    mainClass in Compile := Option("modux.core.server.ProdServer"),
-    mainClass in(Compile, run) := Option("modux.core.server.DevServer"),
+    mainClass in Compile := Option("modux.server.ProdServer"),
+    mainClass in(Compile, run) := Option("modux.server.DevServer"),
     run in Compile := runnerImpl.evaluated,
     watchStartMessage in(Compile, run) := watchStartMessageImpl.value,
     watchPersistFileStamps in(Compile, run) := true,
-    watchTriggers in(Compile, run) ++= Seq(baseDirectory.value.toGlob / CONFIG_DIR / **),
+    watchTriggers in(Compile, run) ++= Seq((sourceDirectory in Compile).value.toGlob / **),
     watchOnTermination in(Compile, run) := watchOnTerminationImpl,
     watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
     watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,
-    scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
+//    scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
     javaOptions in Universal := Def.task {
       Seq(
         s"-Dmodux.host=${moduxHost.value}",

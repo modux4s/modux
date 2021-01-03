@@ -4,7 +4,7 @@ import modux.plugin.core.ModuxState
 import modux.shared.ServerDecl
 import sbt.{SettingKey, TaskKey, settingKey, taskKey}
 
-trait ModuxPluginSettings {
+trait ModuxServiceSettings {
 
   lazy val MODUX_MODE: String = "modux.mode"
   lazy val MODE_COMPILE: String = "compile"

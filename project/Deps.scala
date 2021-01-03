@@ -33,6 +33,7 @@ object Deps {
   private final val twirlVersion: String = "1.5.0"
   private final val pac4jVersion: String = "4.3.0"
   private final val kafkaVersion: String = "2.6.0"
+  private val sbtWebVersion: String = "1.4.4"
 
   //************** BUILD INFO **************//
   val buildInfo: Seq[BuildInfoKey] = Seq[BuildInfoKey](
@@ -99,6 +100,7 @@ object Deps {
   // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
   lazy val caffeine = "com.github.ben-manes.caffeine" % "caffeine" % caffeineVersion
   lazy val twirl = "com.typesafe.sbt" % "sbt-twirl" % twirlVersion
+  lazy val sbtWeb = "com.typesafe.sbt" % "sbt-web" % sbtWebVersion
   lazy val twirlApi =  "com.typesafe.play" %% "twirl-api" % twirlVersion
 
   //************** TESTING **************//

@@ -9,7 +9,5 @@ import sbt.{Def, _}
 case object ModuxWeb extends AutoPlugin {
   override def requires: Plugins = JvmPlugin && SbtTwirl
 
-  override def projectSettings: Seq[Def.Setting[_]] = Seq(
-    sourceDirectories in(Compile, TwirlKeys.compileTemplates) := Seq(sourceDirectory.value)
-  ) ++ ModuxWebDefaults.defaultSettings
+  override def projectSettings: Seq[Def.Setting[_]] =  ModuxWebDefaults.defaultSettings
 }

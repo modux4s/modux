@@ -178,6 +178,7 @@ lazy val plugin = (project in file("./modules/plugin"))
     ),
     addSbtPlugin(Deps.sbtNativePackager),
     addSbtPlugin(Deps.twirl),
+    addSbtPlugin(Deps.sbtWeb),
 
   )
 lazy val root = (project in file("."))
