@@ -1,8 +1,8 @@
-package modux.plugin
+package modux.plugin.service
 
-import modux.plugin.core.{ModuxState, ServerReloader}
+import modux.plugin.core.ModuxState
 import modux.shared.ServerDecl
-import sbt._
+import sbt.{SettingKey, TaskKey, settingKey, taskKey}
 
 trait ModuxPluginSettings {
 

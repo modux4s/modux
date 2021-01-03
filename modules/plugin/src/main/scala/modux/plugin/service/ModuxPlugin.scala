@@ -1,27 +1,28 @@
-package modux.plugin
+package modux.plugin.service
 
-import com.typesafe.sbt.SbtNativePackager._
-import com.typesafe.sbt.packager.MappingsHelper._
+import com.typesafe.sbt.SbtNativePackager.Universal
+
+import java.nio.file.{Path => JPath}
+import com.typesafe.sbt.packager.MappingsHelper.directory
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 import modux.plug.HookPlugin
-import modux.plugin.ModuxPluginDefaults._
 import modux.plugin.core.{InProgress, ModuxState, ModuxUtils, ServerReloader}
+import modux.plugin.web.ModuxWeb
 import modux.shared.PrintUtils
 import sbt.Keys._
 import sbt.nio.Keys._
 import sbt.nio.Watch
-import sbt.plugins.JvmPlugin
-import sbt.util.CacheImplicits._
 import sbt.util.CacheStore
-import sbt.{Compile, Def, _}
+import sbt.{AutoPlugin, Def, InputTask, Plugins, Project, ProjectRef, State, Task, file}
 
-import java.nio.file.{Path => JPath}
 import java.util
-import java.util.concurrent.TimeUnit
+import sbt._
+import sbt.plugins.JvmPlugin
+import sbt.util.StampedFormat._
+
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 
 object ModuxPlugin extends AutoPlugin {
 
@@ -38,9 +39,7 @@ object ModuxPlugin extends AutoPlugin {
     store.write(s)
   }
 
-  override def trigger = allRequirements
-
-  override def requires: Plugins = JvmPlugin && JavaAppPackaging && HookPlugin
+  override def requires: Plugins = JvmPlugin && ModuxWeb && JavaAppPackaging && HookPlugin
 
   object autoImport extends ModuxPluginSettings {
   }
@@ -234,12 +233,13 @@ object ModuxPlugin extends AutoPlugin {
     }.dependsOn(cleanReq)
   }
 
-  override lazy val globalSettings: Seq[Def.Setting[_]] = Seq(
+  override def globalSettings: Seq[Def.Setting[_]] = Seq(
     useSuperShell := false,
-    resolvers += Resolver.bintrayRepo("jsoft", "maven")
+    resolvers += Resolver.bintrayRepo("jsoft", "maven"),
+
   )
 
-  override lazy val projectSettings: Seq[Setting[_]] = Seq(
+  override def projectSettings: Seq[Setting[_]] = Seq(
     contact := None,
     servers := Nil,
     moduxPort := 9000,
@@ -253,9 +253,9 @@ object ModuxPlugin extends AutoPlugin {
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
-        Seq(moduxServer, moduxOpenAPIV2) ++ webSecurityDeps
+        Seq(ModuxPluginDefaults.moduxServer, ModuxPluginDefaults.moduxOpenAPIV2)
       } else {
-        Seq(moduxServer, moduxOpenAPIV3) ++ webSecurityDeps
+        Seq(ModuxPluginDefaults.moduxServer, ModuxPluginDefaults.moduxOpenAPIV3)
       }
     }.value,
     mainClass in Compile := Option("modux.core.server.ProdServer"),
@@ -263,9 +263,7 @@ object ModuxPlugin extends AutoPlugin {
     run in Compile := runnerImpl.evaluated,
     watchStartMessage in(Compile, run) := watchStartMessageImpl.value,
     watchPersistFileStamps in(Compile, run) := true,
-    watchAntiEntropy in(Compile, run) := FiniteDuration(2, TimeUnit.SECONDS),
-    watchForceTriggerOnAnyChange in(Compile, run) := false,
-    watchTriggers in(Compile, run) += baseDirectory.value.toGlob / CONFIG_DIR / **,
+    watchTriggers in(Compile, run) ++= Seq(baseDirectory.value.toGlob / CONFIG_DIR / **),
     watchOnTermination in(Compile, run) := watchOnTerminationImpl,
     watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
     watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,

@@ -10,10 +10,11 @@ import akka.util.ByteString
 import modux.macros.serializer.SerializationDefaults.DefaultCodecRegistry
 import modux.macros.serializer.codec._
 import modux.macros.serializer.codec.providers.api.{CodecEntityProvider, CodecProvider}
+import modux.macros.serializer.twirl.TwirlSerialization
 import modux.macros.serializer.websocket.JsonWebSocketCodecImpl
 import modux.model.converter.WebSocketCodec
 
-trait SerializationSupport {
+trait SerializationSupport extends TwirlSerialization{
 
   private type TRM[T] = ToResponseMarshaller[T]
 

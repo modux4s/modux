@@ -1,25 +1,23 @@
 package modux.model.header
 
-import akka.http.scaladsl.marshalling.ToResponseMarshaller
 import akka.http.scaladsl.model.HttpHeader.ParsingResult
 import akka.http.scaladsl.model.headers.HttpCookie
-import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpHeader, HttpResponse, MediaTypes}
+import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpHeader, MediaTypes}
 import com.typesafe.scalalogging.LazyLogging
 import modux.model.instruction.impl.response._
 
-import scala.collection.mutable
-import scala.concurrent.Future
+import scala.collection.mutable.ArrayBuffer
 
 final case class ResponseHeader() extends LazyLogging {
 
-  private val instructions: mutable.ArrayBuffer[ResponseCommand] = mutable.ArrayBuffer.empty
+  private val instructions: ArrayBuffer[ResponseCommand] = ArrayBuffer.empty
 
   private def addInstruction(instruction: ResponseCommand): ResponseHeader = {
     instructions.append(instruction)
     this
   }
 
-  private[modux] def getInstructions: Seq[ResponseCommand] = instructions
+  private[modux] def getInstructions: ArrayBuffer[ResponseCommand] = instructions
 
   def withStatus(code: Int): ResponseHeader = addInstruction(SetStatus(code))
 

@@ -17,7 +17,7 @@ import org.pac4j.core.config.Config
 import org.pac4j.core.engine._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 object SecuritySupport {
   type Response = Invoke

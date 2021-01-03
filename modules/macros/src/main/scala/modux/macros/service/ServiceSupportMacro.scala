@@ -93,20 +93,16 @@ object ServiceSupportMacro {
     import c.universe._
 
     //************** INITIALIZATION **************//
-    val argsMap: Map[String, c.universe.ValDef] = {
-
-      funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
-    }
+    val argsMap: Map[String, c.universe.ValDef] = funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
 
     val isCompile: Boolean = sys.props.get("modux.mode").forall(_ == "compile")
     lazy val urlValue: String = c.eval[String](url)
     lazy val parsedPath: PathMetadata = extractVariableName(c)(urlValue)
     lazy val parsedArgumentsMap: Map[String, Path] = parsedPath.parsedArgumentsMap
-    val functionRefClassName: String = funcRef.tpe.toString
 
     val parsedArgMapSize: Int = parsedArgumentsMap.size
     val expectedSize: Int = parsedArgMapSize + parsedPath.queryParams.size
-    val functionRefArgsSize: Int = if (functionRefClassName.contains("Call")) 0 else funcRef.tpe.typeArgs.dropRight(1).size
+    val functionRefArgsSize: Int = if (funcRef.tpe.typeArgs.head.toString.contains("Call")) 0 else funcRef.tpe.typeArgs.dropRight(1).size
     val matchByTypes: Boolean = functionRefArgsSize == parsedArgMapSize
 
     if (expectedSize != functionRefArgsSize) {
@@ -127,7 +123,6 @@ object ServiceSupportMacro {
         exportMode(c)(method, urlValue, funcRef, parsedPath)
       }
     }
-    c.echo(c.enclosingPosition, treeBuild)
     c.Expr(c.parse(treeBuild))
   }
 
@@ -312,7 +307,7 @@ object ServiceSupportMacro {
       } else {
 
         if (isEmptyRequest) {
-          val requestTypeStr: String = fullName(c)(requestType)
+          val requestTypeStr: String = if (same(c)(requestType, definitions.UnitTpe)) "()" else fullName(c)(requestType)
           s"""
              |extractRequestContext{__request__ =>
              |  val __invoke__ = AkkaUtils.createInvoke(__request__)

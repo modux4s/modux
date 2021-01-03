@@ -4,13 +4,14 @@ import sbt._
 ThisBuild / version := "1.2.2-SNAPSHOT"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
-ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
 ThisBuild / resolvers += "io.confluent" at "https://packages.confluent.io/maven/"
 ThisBuild / resolvers += Resolver.bintrayRepo("jsoft", "maven")
+ThisBuild / resolvers += Resolver.bintrayRepo("sbt", "sbt-plugin-releases")
 ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
+ThisBuild / crossScalaVersions := Deps.scalaVersions
 
-Global / onChangedBuildSource := ReloadOnSourceChanges
+onChangedBuildSource in Global := ReloadOnSourceChanges
 
 bintrayReleaseOnPublish in ThisBuild := false
 
@@ -28,6 +29,7 @@ lazy val enablingPublishingSettings = Seq(
   bintrayVcsUrl := Option("https://github.com/joacovela16/modux"),
   bintrayOrganization := Option("jsoft"),
 )
+
 
 lazy val akkaDeps = Seq(
   libraryDependencies ++= Seq(
@@ -102,16 +104,19 @@ lazy val swaggerExportV2 = (project in file("./modules/export/swagger2"))
   )
 
 lazy val devShared = (project in file("./modules/shared"))
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "modux-shared",
     enablingPublishingSettings,
+    buildInfoKeys := Deps.buildInfo
   )
 
 lazy val plug = (project in file("./modules/plug"))
   .settings(
+    crossScalaVersions := Nil,
     sbtPlugin := true,
     name := "modux-plug",
-    enablingPublishingSettings,
+    enablingPublishingSettings
   )
 
 lazy val macros = (project in file("./modules/macros"))
@@ -122,6 +127,7 @@ lazy val macros = (project in file("./modules/macros"))
     scalacOptions ++= Seq("-language:experimental.macros"),
     enablingPublishingSettings,
     libraryDependencies ++= Seq(
+      Deps.twirlApi,
       Deps.jacksonDataformatXml,
       Deps.aaltoXmlParser,
       Deps.jacksonModuleScala,
@@ -156,24 +162,28 @@ lazy val server = (project in file("./modules/server"))
     enablingPublishingSettings,
   )
 
-lazy val printVersion = taskKey[Unit]("testing")
-lazy val printVersionImpl = Def.task {
-  println(Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12").toString())
-  println(scalaBinaryVersion.value)
-  println(crossVersion.value)
-}
 
-lazy val root = (project in file("./"))
+lazy val plugin = (project in file("./modules/plugin"))
+
   .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore, plug)
-  .dependsOn(server, devShared, plug)
+  .dependsOn(devShared, plug)
   .settings(
-    printVersion := printVersionImpl.value,
+    crossScalaVersions := Nil,
     sbtPlugin := true,
     name := "modux-plugin",
     enablingPublishingSettings,
     libraryDependencies ++= Seq(
       Deps.xbean,
-      Deps.compress,
-      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", scalaBinaryVersion.value)
-    )
+      Deps.compress
+    ),
+    addSbtPlugin(Deps.sbtNativePackager),
+    addSbtPlugin(Deps.twirl),
+
+  )
+lazy val root = (project in file("."))
+  .aggregate(plugin)
+  .settings(
+    name := "modux4s",
+    crossScalaVersions := Nil,
+    publish / skip := true
   )

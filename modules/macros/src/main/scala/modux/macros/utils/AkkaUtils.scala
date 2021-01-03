@@ -25,7 +25,7 @@ object AkkaUtils extends Directives {
 
   def mapResponse(invoke: Invoke): Directive0 = {
     mapResponse{response =>
-      ResponseInstruction(response, invoke.responseHeader.getInstructions)
+      ResponseInstruction(response, invoke.responseHeader.getInstructions.toList)
     }
   }
 

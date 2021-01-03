@@ -4,7 +4,7 @@ import io.swagger.models.parameters.{Parameter, PathParameter, QueryParameter}
 import io.swagger.models.properties._
 import modux.model.schema._
 
-import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import java.util
 
 object VersionAdapter2 {
 
@@ -78,7 +78,9 @@ object VersionAdapter2 {
       case x: MArraySchema =>
         new ArrayProperty().items(VersionAdapter2(x.item))
       case x: MComposed =>
-        new ComposedProperty().allOf(x.items.map(y => VersionAdapter2(y)).asJava)
+        import scala.jdk.CollectionConverters._
+        val java: util.List[Property] = x.items.map(y => VersionAdapter2(y)).asJava
+        new ComposedProperty().allOf(java)
     }
   }
 }

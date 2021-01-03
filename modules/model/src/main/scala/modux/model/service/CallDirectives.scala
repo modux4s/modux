@@ -48,7 +48,7 @@ trait CallDirectives {
   }
 
   def empty[out](f: => Call[Unit, out]): Call[Unit, out] = (_, req) => {
-    f(Unit, req)
+    f((), req)
   }
 
   def doneWith[in, out](f: => Future[out]): Call[in, out] = (_, _) => {

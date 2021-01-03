@@ -3,7 +3,7 @@ package modux.model.header
 import akka.http.javadsl.model.{Query, Uri}
 import akka.http.scaladsl.model.{HttpMethod, HttpMethods}
 
-import scala.jdk.CollectionConverters.mapAsScalaMapConverter
+import scala.jdk.CollectionConverters._
 
 final case class RequestHeader private(
                                         method: HttpMethod,

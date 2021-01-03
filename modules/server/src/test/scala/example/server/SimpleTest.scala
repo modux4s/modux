@@ -40,7 +40,6 @@ case class SimpleTest() extends Service with GraphQLSupport with SerializationSu
   val queryInstance: Query = Query(() => User("pepe", 12))
 
   def getUser(): Call[Unit, Source[User, NotUsed]] = securityService.withAuthentication() { auth =>
-    println(auth)
     onCall {
       Source(List(User("pepe", 120)))
     }
@@ -50,13 +49,6 @@ case class SimpleTest() extends Service with GraphQLSupport with SerializationSu
     println("OK")
   }
 
-  def func1(): () => Call[Option[String], Unit] = () => {
-    extractInput { in =>
-      doneWith {
-        println(in)
-      }
-    }
-  }
 
   def getStatic(basePath: String): String => Call[Unit, Source[ByteString, NotUsed]] = remaining => {
     println(remaining)
@@ -90,16 +82,11 @@ case class SimpleTest() extends Service with GraphQLSupport with SerializationSu
 
     namedAs("testing")
       .entry(
-        get("/callback", securityService.callback("/home")),
-        post("/callback", securityService.callback("/home")),
-        get("/user", getUser _),
-        //        statics("/home", "public"),
-        //        get("/api?p1&p2&p3", func2Alt),
-        //        namespace("/home")(
-        //          get("/home/:id", getStaticHome _),
-        //        get("/home/*", assets),
-        //        ),
-        call("graphql", secureGraphQL _),
+//        get("/callback", securityService.callback("/home")),
+//        post("/callback", securityService.callback("/home")),
+//        get("/user", getUser _),
+//        call("graphql", secureGraphQL _),
+        get("/home/:id", getStaticHome _)
       )
   }
 }

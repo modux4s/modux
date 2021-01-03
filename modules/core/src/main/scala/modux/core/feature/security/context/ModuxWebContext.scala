@@ -12,9 +12,8 @@ import java.util
 import java.util.Optional
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.JavaConverters._
-import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.jdk.CollectionConverters._
 
 /**
  *
@@ -88,7 +87,8 @@ case class ModuxWebContext(invoke: Invoke, formFields: Seq[(String, String)], se
   }
 
   override def getRequestParameters: java.util.Map[String, Array[String]] = {
-    requestParameters.mapValues(Array(_)).asJava
+    val it: util.Map[String, Array[String]] = requestParameters.mapValues(x => Array(x)).toMap.asJava
+    it
   }
 
   override def getFullRequestURL: String = {
@@ -108,11 +108,11 @@ case class ModuxWebContext(invoke: Invoke, formFields: Seq[(String, String)], se
   }
 
   override def getRequestParameter(name: String): Optional[String] = {
-    requestParameters.get(name).asJava
+    requestParameters.get(name).fold(Optional.empty[String]())(x => Optional.ofNullable(x))
   }
 
   override def getRequestHeader(name: String): Optional[String] = {
-    request.headers.find(_.name().toLowerCase() == name.toLowerCase).map(_.value).asJava
+    request.headers.find(_.name().toLowerCase() == name.toLowerCase).map(_.value).fold(Optional.empty[String]())(x => Optional.ofNullable(x))
   }
 
   override def getScheme: String = {

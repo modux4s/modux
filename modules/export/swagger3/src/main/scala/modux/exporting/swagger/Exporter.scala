@@ -23,8 +23,10 @@ import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
 import modux.model.rest.RestProxy
 import modux.model.schema.MSchema
 
+import java.util
 import scala.concurrent.ExecutionContext
-import scala.jdk.CollectionConverters._
+//import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object Exporter {
 
@@ -103,7 +105,7 @@ object Exporter {
                   //************** parameters **************//
 
                   val paramDesMap: Map[String, ParamDescriptor] = entry._paramDescriptor.map { x => x._kind.name -> x }.toMap
-                  val cookieAndHeaderParams: Seq[Parameter] = entry._paramDescriptor.map(_._kind).collect {
+                  val cookieAndHeaderParams: Seq[Parameter] = entry._paramDescriptor.toList.map(_._kind).collect {
                     case x: CookieKind =>
                       val cookieParam: CookieParameter = new CookieParameter
                       cookieParam.setName(x.name)
@@ -228,7 +230,7 @@ object Exporter {
 
     def processServers(buildContext: BuildContext): Seq[Server] = {
 
-      buildContext.servers.asScala.map { x =>
+      buildContext.servers.asScala.toList.map { x =>
 
         val server: Server = new Server
         val serverVariables: ServerVariables = new ServerVariables
@@ -249,22 +251,23 @@ object Exporter {
     }
 
     def main(buildContext: BuildContext, context: Context): String = {
-      import scala.collection.JavaConverters._
+
 
       val readerConfig: SwaggerConfiguration = new SwaggerConfiguration
       val openAPI: OpenAPI = new OpenAPI
       val components: Components = new Components
       val paths: Paths = extractModules(buildContext, context).foldLeft(new Paths) { case (acc, mod) => processModule(mod, acc, components) }
 
+      val java1: util.List[Server] = processServers(buildContext).asJava
       openAPI
         .info(createInfo(buildContext))
         .paths(paths)
         .components(components)
-        .servers(processServers(buildContext).asJava)
+        .servers(java1)
 
       val reader: Reader = new Reader(readerConfig.openAPI(openAPI))
 
-      val set: Set[Class[_]] = Set()
+      val set: Set[Class[_]] = Set.empty
       val swagger: OpenAPI = reader.read(set.asJava)
 
       buildContext.get("export.mode") match {

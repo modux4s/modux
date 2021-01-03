@@ -43,7 +43,7 @@ object Invoke {
         new ToResponseMarshallable {
           override type T = HttpResponse
 
-          override def value: HttpResponse = ResponseInstruction(HttpResponse(), responseHeader.getInstructions)
+          override def value: HttpResponse = ResponseInstruction(HttpResponse(), responseHeader.getInstructions.toSeq)
 
           override implicit def marshaller: ToResponseMarshaller[HttpResponse] = m
         }

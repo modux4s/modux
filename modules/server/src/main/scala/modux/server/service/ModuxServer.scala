@@ -134,6 +134,6 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
         }
       }
 
-    model.Capture(Directives.concat(routes: _*), modules, specs, serviceEntry)
+    model.Capture(Directives.concat(routes.toList: _*), modules, specs, serviceEntry)
   }
 }

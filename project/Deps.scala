@@ -1,7 +1,11 @@
+import sbt.Keys.{name, sbtVersion, scalaVersion, version}
 import sbt._
+import sbtbuildinfo.BuildInfoPlugin.autoImport.BuildInfoKey
 
 object Deps {
 
+  //************** SCALA **************//
+  val scalaVersions: Seq[String] = Seq("2.12.12", "2.13.4")
   //************** VERSIONS **************//
   private final val macwireVersion: String = "2.3.7"
   private final val akkaVersion: String = "2.6.10"
@@ -11,10 +15,10 @@ object Deps {
   private final val ansiInterpolatorVersion: String = "1.1.0"
   private final val self4jVersion: String = "1.7.25"
   private final val jacksonVersion: String = "2.11.2"
-  private final val typeConfigVersion: String = "1.4.0"
+  private final val typeConfigVersion: String = "1.4.1"
   private final val logbackClassicVersion: String = "1.2.3"
   private final val kryoSerializationVersion: String = "1.1.5"
-  private final val sbtNativePackagerVersion: String = "1.7.3"
+  private final val sbtNativePackagerVersion: String = "1.8.0"
   private final val aaltoXmlParserVersion: String = "1.2.2"
   private final val configScalaVersion: String = "1.0.3"
   private final val scalaTestVersion: String = "3.2.0"
@@ -25,8 +29,21 @@ object Deps {
   private final val compressVersion: String = "1.20"
   private final val akkaKafkaVersion: String = "2.0.5"
   private final val akkaCorsVersion: String = "1.0.0"
-  private final val pac4jVersion: String = "4.3.0"
   private final val caffeineVersion: String = "2.8.8"
+  private final val twirlVersion: String = "1.5.0"
+  private final val pac4jVersion: String = "4.3.0"
+  private final val kafkaVersion: String = "2.6.0"
+
+  //************** BUILD INFO **************//
+  val buildInfo: Seq[BuildInfoKey] = Seq[BuildInfoKey](
+    name,
+    version,
+    scalaVersion,
+    sbtVersion,
+    BuildInfoKey("kafkaVersion", kafkaVersion),
+    BuildInfoKey("pac4jVersion", pac4jVersion)
+  )
+
   //************** DI **************//
   lazy val sbtNativePackager = "com.typesafe.sbt" % "sbt-native-packager" % sbtNativePackagerVersion
   lazy val xbean = "org.apache.xbean" % "xbean-classloader" % xbeanVersion
@@ -44,9 +61,8 @@ object Deps {
   lazy val self4j = "org.slf4j" % "slf4j-api" % self4jVersion
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % logbackClassicVersion
   lazy val logbackCore = "ch.qos.logback" % "logback-core" % logbackClassicVersion
-
   //************** DI **************//
-  lazy val macwireMacros =  "com.softwaremill.macwire" %% "macros" % macwireVersion
+  lazy val macwireMacros = "com.softwaremill.macwire" %% "macros" % macwireVersion
   lazy val macwireUtils = "com.softwaremill.macwire" %% "util" % macwireVersion
   lazy val macwireProxy = "com.softwaremill.macwire" %% "proxy" % macwireVersion
   //************** SERIALIZATION **************//
@@ -59,7 +75,6 @@ object Deps {
   lazy val aaltoXmlParser = "com.fasterxml" % "aalto-xml" % aaltoXmlParserVersion
   lazy val woodstoxCore = "com.fasterxml.woodstox" % "woodstox-core" % woodstoxVersion
   lazy val compress = "org.apache.commons" % "commons-compress" % compressVersion
-
   //************** WEB SECURITY **************//
   lazy val pac4jCore = "org.pac4j" % "pac4j-core" % pac4jVersion
   lazy val pac4jOAuth = "org.pac4j" % "pac4j-oauth" % pac4jVersion
@@ -76,18 +91,17 @@ object Deps {
   lazy val swaggerJaxrs2 = "io.swagger" % "swagger-jaxrs" % swaggerVersion2
   //************** GRAPHQL **************//
   lazy val graphql = "jsoft.graphql4s" %% "graphql4s" % "0.1.0"
-
   //************** UTILS **************//
   lazy val ansiInterpolator = "org.backuity" %% "ansi-interpolator" % ansiInterpolatorVersion
   lazy val typeSafeConf = "com.typesafe" % "config" % typeConfigVersion
   lazy val configScala = "com.github.andyglow" %% "typesafe-config-scala" % configScalaVersion
   lazy val javaxrs = "javax.ws.rs" % "javax.ws.rs-api" % javaxrsVersion3
-
   // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
   lazy val caffeine = "com.github.ben-manes.caffeine" % "caffeine" % caffeineVersion
+  lazy val twirl = "com.typesafe.sbt" % "sbt-twirl" % twirlVersion
+  lazy val twirlApi =  "com.typesafe.play" %% "twirl-api" % twirlVersion
 
   //************** TESTING **************//
   lazy val scalactic = "org.scalactic" %% "scalactic" % scalaTestVersion
   lazy val scalatest = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
-
 }
