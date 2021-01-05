@@ -26,7 +26,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 1. Add to **plugin.sbt** 
 ```scala
 resolvers += Resolver.bintrayRepo("jsoft", "maven")
-addSbtPlugin("jsoft.modux" %% "modux-plugin" % "1.0.11")
+addSbtPlugin("jsoft.modux" %% "modux-plugin" % "1.2.1")
 ```
 2. Enable plugin `enablePlugins(ModuxPlugin)` in your **build.sbt**.
 
