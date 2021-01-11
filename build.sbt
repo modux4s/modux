@@ -1,3 +1,4 @@
+enablePlugins(UpdatesPlugin)
 
 import sbt._
 
@@ -60,6 +61,7 @@ lazy val common = (project in file("./modules/common"))
       Deps.woodstoxCore,
       Deps.pac4jCore,
       Deps.pac4jOAuth,
+      Deps.pac4jJwt,
       Deps.pac4jHttp
     ),
 

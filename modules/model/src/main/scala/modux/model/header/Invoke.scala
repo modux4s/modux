@@ -22,7 +22,7 @@ final case class Invoke private(requestContext: RequestContext, profiles: List[U
 
   private[modux] def entity: RequestEntity = request.entity
 
-  def withProfiles(items: List[UserProfile]): Invoke = {
+  private[modux] def withProfiles(items: List[UserProfile]): Invoke = {
     Invoke(requestContext = requestContext, profiles = items, responseHeader = responseHeader)
   }
 

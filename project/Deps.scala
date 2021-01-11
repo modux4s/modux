@@ -11,24 +11,24 @@ object Deps {
   private final val akkaVersion: String = "2.6.10"
   private final val akkaHTTPVersion: String = "10.2.2"
   private final val scalaLoggingVersion: String = "3.9.2"
-  private final val xbeanVersion: String = "4.16"
+  private final val xbeanVersion: String = "4.18"
   private final val ansiInterpolatorVersion: String = "1.1.0"
   private final val self4jVersion: String = "1.7.25"
-  private final val jacksonVersion: String = "2.11.2"
+  private final val jacksonVersion: String = "2.12.0"
   private final val typeConfigVersion: String = "1.4.1"
   private final val logbackClassicVersion: String = "1.2.3"
-  private final val kryoSerializationVersion: String = "1.1.5"
+  private final val kryoSerializationVersion: String = "2.0.1"
   private final val sbtNativePackagerVersion: String = "1.8.0"
   private final val aaltoXmlParserVersion: String = "1.2.2"
-  private final val configScalaVersion: String = "1.0.3"
+  private final val configScalaVersion: String = "1.1.0"
   private final val scalaTestVersion: String = "3.2.0"
   private final val swaggerVersion3: String = "2.1.4"
   private final val swaggerVersion2: String = "1.6.2"
   private final val javaxrsVersion3: String = "2.1.1"
   private final val woodstoxVersion: String = "6.2.1"
   private final val compressVersion: String = "1.20"
-  private final val akkaKafkaVersion: String = "2.0.5"
-  private final val akkaCorsVersion: String = "1.0.0"
+  private final val akkaKafkaVersion: String = "2.0.6"
+  private final val akkaCorsVersion: String = "1.1.1"
   private final val caffeineVersion: String = "2.8.8"
   private final val twirlVersion: String = "1.5.0"
   private final val pac4jVersion: String = "4.3.0"
@@ -80,6 +80,7 @@ object Deps {
   lazy val pac4jCore = "org.pac4j" % "pac4j-core" % pac4jVersion
   lazy val pac4jOAuth = "org.pac4j" % "pac4j-oauth" % pac4jVersion
   lazy val pac4jHttp = "org.pac4j" % "pac4j-http" % pac4jVersion
+  lazy val pac4jJwt = "org.pac4j" % "pac4j-jwt" % pac4jVersion
   //************** KAFKA **************//
   lazy val akkaKafka = "com.typesafe.akka" %% "akka-stream-kafka" % akkaKafkaVersion
   //************** DOCUMENTATION **************//

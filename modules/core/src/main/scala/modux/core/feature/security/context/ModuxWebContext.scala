@@ -2,7 +2,7 @@ package modux.core.feature.security.context
 
 import akka.http.scaladsl.model.HttpHeader.ParsingResult.{Error, Ok}
 import akka.http.scaladsl.model.headers.HttpCookie
-import akka.http.scaladsl.model.{AttributeKey, HttpHeader}
+import akka.http.scaladsl.model.{AttributeKey, HttpHeader, HttpRequest}
 import modux.core.feature.security.authorizer.CsrfCookieAuthorizer
 import modux.core.feature.security.storage.SessionStorage
 import modux.model.header.Invoke
@@ -12,6 +12,7 @@ import java.util
 import java.util.Optional
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import scala.compat.java8.OptionConverters.{RichOptionForJava8, RichOptionalGeneric}
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
 
@@ -22,7 +23,7 @@ import scala.jdk.CollectionConverters._
  */
 case class ModuxWebContext(invoke: Invoke, formFields: Seq[(String, String)], sessionStorage: SessionStorage, sessionCookieName: String) extends WebContext {
 
-  private val request = invoke.request
+  private val request: HttpRequest = invoke.request
   private val finiteDuration: FiniteDuration = FiniteDuration(24, TimeUnit.HOURS)
   //  private val changes: AtomicReference[ResponseChanges] = new AtomicReference[ResponseChanges](ResponseChanges.empty)
 
@@ -87,8 +88,7 @@ case class ModuxWebContext(invoke: Invoke, formFields: Seq[(String, String)], se
   }
 
   override def getRequestParameters: java.util.Map[String, Array[String]] = {
-    val it: util.Map[String, Array[String]] = requestParameters.mapValues(x => Array(x)).toMap.asJava
-    it
+    requestParameters.mapValues(x => Array(x)).toMap.asJava
   }
 
   override def getFullRequestURL: String = {
@@ -137,7 +137,9 @@ case class ModuxWebContext(invoke: Invoke, formFields: Seq[(String, String)], se
   }
 
   override def getRequestAttribute(name: String): Optional[AnyRef] = {
-    invoke.request.getAttribute(AttributeKey[AnyRef](name))
+    invoke.request.getAttribute(AttributeKey[AnyRef](name)).asScala.orElse {
+      invoke.responseHeader.getAttribute(name)
+    }.asJava
   }
 
   def getResponseSessionCookie: HttpCookie = {

@@ -30,10 +30,12 @@ object ServiceSupportMacro {
 
       if (v1.startsWith("/")) v1.substring(1) else v1
     }
+
     val staticDir: String = c.eval(dir)
 
     val rule: String = staticUrl.split("/").map(x => x.qt).mkString("/")
     val slash: String = if (staticDir.endsWith("/")) "" else "/"
+    val finalStaticDir: String = if (staticDir.startsWith("/")) staticDir.substring(1) else staticDir
 
     c.Expr[RestEntry](
       c.parse(
@@ -48,9 +50,9 @@ object ServiceSupportMacro {
            |    override def route(extensions: Seq[RestEntryExtension]): Route = {
            |      (akkaGet & pathPrefix($rule)) {
            |        pathEndOrSingleSlash {
-           |          getFromDirectory(s"$staticDir${slash}index.html")
+           |          getFromDirectory(s"$finalStaticDir${slash}index.html")
            |        } ~
-           |        getFromDirectory("$staticDir")
+           |        getFromDirectory("$finalStaticDir")
            |      }
            |    }
            |  }
@@ -102,7 +104,13 @@ object ServiceSupportMacro {
 
     val parsedArgMapSize: Int = parsedArgumentsMap.size
     val expectedSize: Int = parsedArgMapSize + parsedPath.queryParams.size
-    val functionRefArgsSize: Int = if (funcRef.tpe.typeArgs.head.toString.contains("Call")) 0 else funcRef.tpe.typeArgs.dropRight(1).size
+    val functionRefArgsSize: Int = {
+      if (funcRef.tpe.toString.startsWith("modux.model.service.Call") || funcRef.tpe.typeArgs.head.toString.startsWith("modux.model.service.Call")) {
+        0
+      } else {
+        funcRef.tpe.typeArgs.dropRight(1).size
+      }
+    }
     val matchByTypes: Boolean = functionRefArgsSize == parsedArgMapSize
 
     if (expectedSize != functionRefArgsSize) {
@@ -395,8 +403,6 @@ object ServiceSupportMacro {
             .queryParams
             .flatMap { x =>
               for (met <- argsMap.get(x)) yield {
-
-                c.echo(c.enclosingPosition, met)
                 val name: String = x
                 val tpe: String = met
                 val argName: String = s"${name}Tmp"

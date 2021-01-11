@@ -3,23 +3,24 @@
 Modux is a simple and lightweight microservice server for Scala inspired on 
 [Lagom Framework](https://www.lagomframework.com/). The aim is to speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
 
-[![version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/modux4s/modux)
+[![version](https://img.shields.io/badge/version-${var.moduxVersion}-green.svg)](https://github.com/modux4s/modux)
 
 ## Features 
 
-
 * Easy to learn and lightweight.
 * Minimal configurations.
-* Microservices defined by DSL.
+* Microservices DSL based.
 * Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
 * Streaming and Kafka support.
-* [GraphQL Support](https://github.com/joacovela16/graphql4s).
+* GraphQL support.
+* Web Security through Pac4j.
+* Dependency Injection through Macwire.
 * Websocket.
 * Serialization support.
 * Hot-Reloading.
 * Clustering support.
 * Easy production building.
-* Compatible with Scala 2.12
+* Compatible with Scala 2.12 and 2.13.
 
 ## Install
 
@@ -43,11 +44,16 @@ File "application.conf" includes Modux modules and Akka settings.
 
 ```
 root
+  /app
+    /services
+    /modules
+    /views 
+  /assets
+  /public
   /conf
     application.conf
     logback.xml
-  /project
-  /src
+    
   build.sbt
 ```
 

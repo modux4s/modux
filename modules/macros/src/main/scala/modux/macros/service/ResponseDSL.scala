@@ -23,3 +23,5 @@ trait ResponseDSL {
   def ResponseWith(code:Int): Nothing = macro ResponseSupportMacro.responseWithEmpty
   def ResponseWith[A](code:Int, d:A): Nothing = macro ResponseSupportMacro.responseWith[A]
 }
+
+object ResponseDSL extends ResponseDSL

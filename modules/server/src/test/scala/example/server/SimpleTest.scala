@@ -3,18 +3,14 @@ package example.server
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.databind.SerializerProvider
-import com.fasterxml.jackson.databind.ser.std.StdSerializer
-import jsoft.graphql.model.Binding
 import modux.core.api.Service
 import modux.core.feature.graphql.{GraphQLInterpreter, GraphQLSupport}
-import modux.core.feature.security.SecuritySupport
-import modux.core.feature.security.model.SecurityService
+import modux.core.feature.security.{SecurityComponents, SecuritySupport}
+import modux.core.feature.security.model.SecureHandler
+import modux.core.feature.security.storage.SessionStorage
 import modux.macros.serializer.SerializationSupport
 import modux.macros.serializer.codec.Codec
 import modux.model.ServiceDef
-import modux.model.context.Context
 import modux.model.service.Call
 import org.pac4j.core.client.Clients
 import org.pac4j.core.config.Config
@@ -31,24 +27,28 @@ case class SimpleTest() extends Service with GraphQLSupport with SerializationSu
   val clients: Clients = new Clients("http://localhost:9000/callback", twitterClient)
   val config: Config = new Config(clients)
 
-  val securityService: SecurityService = security(config)
-
   case class User(name: String, year: Int)
 
   case class Query(users: () => User)
 
   val queryInstance: Query = Query(() => User("pepe", 12))
 
-  def getUser(): Call[Unit, Source[User, NotUsed]] = securityService.withAuthentication() { auth =>
+  override def securityComponents: SecurityComponents = new SecurityComponents{
+    val config: Config = {
+      val clients: Clients = new Clients("http://localhost:9000/callback", twitterClient)
+      new Config(clients)
+    }
+  }
+
+  def getUser(): Call[Unit, Source[User, NotUsed]] = Secure() {
     onCall {
       Source(List(User("pepe", 120)))
     }
   }
 
-  def getStaticHome(id: String): Call[NotUsed, Unit] = doneWith {
+  def getStaticHome(id: String): Call[NotUsed, Unit] = extractContext { req =>
     println("OK")
   }
-
 
   def getStatic(basePath: String): String => Call[Unit, Source[ByteString, NotUsed]] = remaining => {
     println(remaining)
@@ -74,19 +74,21 @@ case class SimpleTest() extends Service with GraphQLSupport with SerializationSu
 
   val graphQLService: GraphQLInterpreter = graphql(queryInstance.asQuery)
 
-  def secureGraphQL(): Call[Option[String], Source[ByteString, NotUsed]] = {
-    securityService.secure()(graphQLService.service)
+  def secureGraphQL(): Call[Option[String], Source[ByteString, NotUsed]] = Secure(){
+    graphQLService.service
   }
 
   override def serviceDef: ServiceDef = {
 
+    val function: Call[Unit, Unit] = callback("/home")
+
     namedAs("testing")
       .entry(
-//        get("/callback", securityService.callback("/home")),
-//        post("/callback", securityService.callback("/home")),
-//        get("/user", getUser _),
-//        call("graphql", secureGraphQL _),
-        get("/home/:id", getStaticHome _)
+        get("/callback", function),
+        //        post("/callback", securityService.callback("/home")),
+        //        get("/user", getUser _),
+        //        call("graphql", secureGraphQL _),
+        //        get("/home/:id", getStaticHome _)
       )
   }
 }

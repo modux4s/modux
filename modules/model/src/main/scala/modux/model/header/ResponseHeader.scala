@@ -34,6 +34,10 @@ final case class ResponseHeader() extends LazyLogging {
 
   def withAttributes(items: Map[String, AnyRef]): ResponseHeader = addInstruction(AddAttributes(items))
 
+  def getAttribute(key: String): Option[AnyRef] = {
+    instructions.collect{ case AddAttributes(attributes) => attributes.get(key)}.flatten.headOption
+  }
+
   def withHeaders(items: List[HttpHeader]): ResponseHeader = addInstruction(AddHeaders(items))
 
   def withHeader(v: HttpHeader): ResponseHeader = addInstruction(AddHeaders(List(v)))
