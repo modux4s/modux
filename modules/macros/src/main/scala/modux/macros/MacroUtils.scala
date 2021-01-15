@@ -1,6 +1,6 @@
 package modux.macros
 
-import modux.model.rest.{AsPath, AsPathParam, Path, PathMetadata}
+import modux.model.rest.{AnythingPath, AsPath, AsPathParam, Path, PathMetadata, AsRegexPath}
 
 import scala.reflect.macros.blackbox
 
@@ -32,16 +32,39 @@ object MacroUtils {
   def extractVariableName(c: blackbox.Context)(url: String): PathMetadata = {
 
     def parsePartialUrl(x: String): Seq[Path] = {
-      x.split("/").map { x =>
-        val bool1: Boolean = x.startsWith(":")
+      val result: (Seq[Path], Seq[Path]) = x
+        .split("/")
+        .toSeq
+        .map { x =>
 
-        if (bool1) {
-          AsPathParam(x.substring(1, x.length))
-        } else if (!bool1 && !x.contains(":")) {
-          AsPath(x)
-        } else {
-          c.abort(c.enclosingPosition, s"Invalid path section: '$x'")
+          val isParamRef: Boolean = x.startsWith(":")
+          val isParamRegex: Boolean = x.startsWith(":") && x.indexOf('<') < x.indexOf('>') && x.endsWith(">") && x.count(_ == '<') == 1 && x.count(_ == '>') == 1
+
+          if (isParamRef) {
+            AsPathParam(x.substring(1, x.length))
+          } else if (x == "*") {
+            AnythingPath
+          } else if (isParamRegex) {
+            val startIdx: Int = x.indexOf('<')
+            val endIdx: Int = x.indexOf('>')
+            val name: String = x.substring(1, startIdx)
+            val regex: String = x.substring(startIdx, endIdx - 1)
+
+            AsRegexPath(name, regex)
+          } else if (!isParamRef && !isParamRegex && !x.contains(":")) {
+            AsPath(x)
+          } else {
+            c.abort(c.enclosingPosition, s"Invalid path section: '$x'")
+          }
         }
+        .span {
+          case AnythingPath => false
+          case _ => true
+        }
+
+      result match {
+        case (h, Nil) => h
+        case (h, t) => h :+ t.head
       }
     }
 
@@ -55,6 +78,17 @@ object MacroUtils {
       }
     }
 
+    def validatePathParams(pathParams: String): Unit = {
+      val count: Int = pathParams.count(_ == '*')
+      if (count <= 1) {
+        if (count >= 1 && !pathParams.endsWith("*")) {
+          c.abort(c.enclosingPosition, "Incorrect '*' pattern applied. Use it at the end of path. ")
+        }
+      } else {
+        c.abort(c.enclosingPosition, "Incorrect '*' pattern applied. Use it at the end of path. ")
+      }
+    }
+
     val finalUrl: String = if (url.startsWith("/")) {
       url.substring(1)
     } else {
@@ -62,6 +96,36 @@ object MacroUtils {
     }
 
     val (pathParams, queryParams) = splitParams(finalUrl)
+
+    validatePathParams(pathParams)
+
     PathMetadata(finalUrl, parsePartialUrl(pathParams), parseQueryParam(queryParams))
+  }
+
+  def extractSubType(tpe: String): String = {
+    val start: Int = tpe.indexOf('[')
+    val end: Int = tpe.lastIndexOf(']')
+    if (start > -1 && end > -1) {
+      tpe.substring(start + 1, end)
+    } else {
+      tpe
+    }
+  }
+
+  def extractSuperType(tpe: String): String = {
+    val start: Int = tpe.indexOf('[')
+    if (start > -1) {
+      tpe.substring(0, start)
+    } else {
+      tpe
+    }
+  }
+
+  def isIterable(tpe: String): Boolean = {
+
+    SUPPORTED_ITERABLE.exists { x =>
+      println(x)
+      tpe.startsWith(x)
+    }
   }
 }

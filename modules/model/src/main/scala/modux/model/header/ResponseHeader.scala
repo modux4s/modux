@@ -1,80 +1,88 @@
 package modux.model.header
 
-import akka.http.scaladsl.model.ContentType
+import akka.http.scaladsl.model.HttpHeader.ParsingResult
 import akka.http.scaladsl.model.headers.HttpCookie
+import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpHeader, MediaTypes}
+import com.typesafe.scalalogging.LazyLogging
+import modux.model.instruction.impl.response._
 
-sealed trait ContentAs
+import scala.collection.mutable.ArrayBuffer
 
-case object Default extends ContentAs
+final case class ResponseHeader() extends LazyLogging {
 
-case object Json extends ContentAs
+  private val instructions: ArrayBuffer[ResponseCommand] = ArrayBuffer.empty
 
-case object Xml extends ContentAs
+  private def addInstruction(instruction: ResponseCommand): ResponseHeader = {
+    instructions += instruction
+    this
+  }
 
-case object TextPlain extends ContentAs
+  private[modux] def getInstructions: Seq[ResponseCommand] = instructions.toList
 
-case object Html extends ContentAs
+  def withStatus(code: Int): ResponseHeader = addInstruction(SetStatus(code))
 
-case class Custom(contentType: ContentType) extends ContentAs
+  def withHeader(n: String, v: String): ResponseHeader = {
+    parseHeader(n, v).fold(this)(x => addInstruction(AddHeaders(List(x))))
+  }
 
-trait ResponseHeader {
-  def status: Int
-  def uri: String
-  def headers: Map[String, String]
-  def cookies: Map[String, HttpCookie]
-  def contentAs: ContentAs
-  //  def deleteCookies(): Set[String]
+  def withHeaders(v: (String, String)*): ResponseHeader = {
+    val mod: List[HttpHeader] = v.foldLeft(List.empty[HttpHeader]) { case (acc, item) =>
+      parseHeader(item._1, item._2).fold(acc)(x => acc :+ x)
+    }
+    addInstruction(AddHeaders(mod))
+  }
 
-  def withStatus(v: Int): ResponseHeader
+  def withAttributes(items: Map[String, AnyRef]): ResponseHeader = addInstruction(AddAttributes(items))
 
-  def withHeader(n: String, v: String): ResponseHeader
-  def withHeaders(v: (String, String)*): ResponseHeader
-  def withHeaders(v: Map[String, String]): ResponseHeader
+  def getAttribute(key: String): Option[AnyRef] = {
+    instructions.collect { case AddAttributes(attributes) => attributes.get(key) }.flatten.headOption
+  }
 
-  def withCookie(n: String, v: String): ResponseHeader
-  def withCookies(cookies: HttpCookie*): ResponseHeader
-  def withCookies(v: Map[String, String]): ResponseHeader
+  def withHeaders(items: List[HttpHeader]): ResponseHeader = addInstruction(AddHeaders(items))
 
-  //  def removeCookies(v:String*): ResponseHeader
+  def withHeader(v: HttpHeader): ResponseHeader = addInstruction(AddHeaders(List(v)))
 
-  def asJson: ResponseHeader
-  def asXml: ResponseHeader
-  def asHtml: ResponseHeader
-  def asTextPlain: ResponseHeader
+  def withCookie(c: HttpCookie): ResponseHeader = addInstruction(AddCookies(List(c)))
+
+  def withCookie(n: String, v: String): ResponseHeader = addInstruction(AddCookies(List(HttpCookie(n, v))))
+
+  def withCookies(v: List[HttpCookie]): ResponseHeader = addInstruction(AddCookies(v))
+
+  def withCookies(v: Map[String, String]): ResponseHeader = addInstruction(AddCookies(v.map { case (k, v) => HttpCookie(k, v) }.toList))
+
+  def asJson: ResponseHeader = addInstruction(ContentAs(ContentTypes.`application/json`))
+
+  def asXml: ResponseHeader = addInstruction(ContentAs(MediaTypes.`application/xml`.toContentTypeWithMissingCharset))
+
+  def asHtml: ResponseHeader = addInstruction(ContentAs(ContentTypes.`text/html(UTF-8)`))
+
+  def asTextPlain: ResponseHeader = addInstruction(ContentAs(ContentTypes.`text/plain(UTF-8)`))
+
+  def withContentType(ct: ContentType): ResponseHeader = {
+    addInstruction(ContentAs(ct))
+  }
+
+  def withContentType(ct: String): ResponseHeader = {
+    ContentType.parse(ct) match {
+      case Left(value) =>
+        value.foreach(x => logger.error(x.detail))
+        this
+      case Right(value) => addInstruction(ContentAs(value))
+    }
+
+  }
+
+  private def parseHeader(n: String, v: String): Option[HttpHeader] = {
+    HttpHeader.parse(n, v) match {
+
+      case ParsingResult.Ok(header, errors) =>
+        errors.foreach(x => logger.warn(x.summary, x.detail))
+        Option(header)
+      case ParsingResult.Error(error) =>
+        logger.warn(error.summary, error.detail)
+        None
+    }
+  }
 }
 
-final case class ResponseHeaderImpl(
-                                     status: Int,
-                                     uri: String,
-                                     contentAs: ContentAs = Default,
-                                     headers: Map[String, String] = Map.empty,
-                                     cookies: Map[String, HttpCookie] = Map.empty,
-                                     //                                     deleteCookies: Set[String] = Set.empty
-                                   ) extends ResponseHeader {
 
-  override def withStatus(v: Int): ResponseHeader = copy(status = v)
-
-  override def withHeader(n: String, v: String): ResponseHeader = copy(headers = headers + (n -> v))
-
-  override def withHeaders(v: (String, String)*): ResponseHeader = copy(headers = headers ++ v.toMap)
-
-  override def withHeaders(v: Map[String, String]): ResponseHeader = copy(headers = headers ++ v)
-
-  override def withCookie(n: String, v: String): ResponseHeader = copy(cookies = cookies + (n -> HttpCookie(n, v)))
-
-  override def withCookies(v: HttpCookie*): ResponseHeader = copy(cookies = cookies ++ v.map { x => x.name() -> x }.toMap)
-
-  override def withCookies(v: Map[String, String]): ResponseHeader = copy(cookies = cookies ++ v.map { case (k, v) => k -> HttpCookie(k, v) })
-
-  override def asJson: ResponseHeader = copy(contentAs = Json)
-
-  override def asXml: ResponseHeader = copy(contentAs = Xml)
-
-  override def asHtml: ResponseHeader = copy(contentAs = Html)
-
-  override def asTextPlain: ResponseHeader = copy(contentAs = TextPlain)
-}
-
-object ResponseHeader {
-  final val Default: ResponseHeader = ResponseHeaderImpl(200, "/")
-}

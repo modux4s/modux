@@ -6,13 +6,13 @@ import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
 import modux.server.model.Types.ExporterResolver
 import modux.server.service.ModuxServer
-import modux.shared.{BuildContext, PrintUtils}
+import modux.shared.{BuildContext}
 import org.slf4j.LoggerFactory
 import org.slf4j.helpers.SubstituteLoggerFactory
 
 private[modux] object DevServer {
 
-  private var serverRef: AtomicReference[ModuxServer] = new AtomicReference[ModuxServer]()
+  private val serverRef: AtomicReference[ModuxServer] = new AtomicReference[ModuxServer]()
   private var lastTimeLogFileModified: Long = 0
   private var firstTime: Boolean = true
 

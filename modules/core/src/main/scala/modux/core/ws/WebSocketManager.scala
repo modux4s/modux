@@ -1,7 +1,5 @@
 package modux.core.ws
 
-import java.util.UUID
-
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior}
 import akka.actor.{ActorRef => CActor}
@@ -10,14 +8,14 @@ import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.{CompletionStrategy, OverflowStrategy}
 import akka.{Done, NotUsed}
-import modux.model.service.Call
-
-import scala.concurrent.ExecutionContext
 import modux.model.converter.WebSocketCodec
-import modux.model.header.{RequestHeader, ResponseHeader}
+import modux.model.header.Invoke
+import modux.model.service.Call
 import modux.model.ws._
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.util.UUID
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object WebSocketManager {
@@ -44,19 +42,18 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
     }
   }
 
-  private def initializedActor(id: String, outActor: CActor, requestHeader: RequestHeader): Behavior[WSCommand] = Behaviors.setup { ctx =>
-
+  private def initializedActor(id: String, outActor: CActor, invoke: Invoke): Behavior[WSCommand] = Behaviors.setup { ctx =>
 
     val connectionRef: ConnectionRef[OUT] = ConnectionRef(id, ctx.self)
 
-    call(OnOpenConnection(connectionRef), requestHeader, ResponseHeader.Default)
+    call(OnOpenConnection(connectionRef), invoke)
 
     Behaviors.receiveMessagePartial {
       case x: PushMessage =>
 
         mapper.encode(x.message).onComplete {
           case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
-          case Success(messageIn) => call(OnMessage(connectionRef, messageIn), requestHeader, ResponseHeader.Default)
+          case Success(messageIn) => call(OnMessage(connectionRef, messageIn), invoke)
         }
 
         Behaviors.same
@@ -72,7 +69,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
 
       case x: CloseConnection =>
 
-        call(OnCloseConnection(id), requestHeader, ResponseHeader.Default)
+        call(OnCloseConnection(id), invoke)
 
         if (x.forced) outActor ! Done
 
@@ -80,7 +77,7 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
     }
   }
 
-  def listen(requestHeader: RequestHeader): Flow[Message, Message, NotUsed] = {
+  def listen(request: Invoke): Flow[Message, Message, NotUsed] = {
 
     val id: String = UUID.randomUUID().toString
     val actorRef: EntityRef[WSCommand] = sharding.entityRefFor(TypeKey, id)
@@ -102,12 +99,11 @@ final class WebSocketManager[IN, OUT](name: String, call: Call[WSEvent[IN, OUT],
 
     Flow.fromSinkAndSourceMat(inbound, source)((_, outboundMat) => {
 
-      actorRef ! HandleOut(outboundMat, requestHeader)
+      actorRef ! HandleOut(outboundMat, request)
 
       NotUsed
     })
       .watchTermination() { (_, fut) =>
-
 
         fut.onComplete { _ =>
           actorRef ! CloseConnection(forced = false, id)

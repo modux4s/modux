@@ -1,0 +1,5 @@
+package modux.model.directives
+
+trait CallDirectives extends ExtractorDirectives with ResponseDirectives
+
+object CallDirectives extends CallDirectives

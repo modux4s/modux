@@ -6,18 +6,19 @@ import akka.actor.{BootstrapSetup, ActorSystem => Classic}
 import com.github.andyglow.config._
 import com.typesafe.config.{Config, ConfigFactory}
 import io.swagger.jaxrs.Reader
+import io.swagger.models._
 import io.swagger.models.parameters.{CookieParameter, HeaderParameter, Parameter}
 import io.swagger.models.properties.StringProperty
-import io.swagger.models._
 import io.swagger.models.utils.PropertyModelConverter
 import io.swagger.util.{Json, Yaml}
 import modux.core.api.ModuleX
 import modux.model.context.Context
-import modux.model.dsl.{CookieKind, HeaderKind, NameSpacedEntry, ParamDescriptor, RestEntry}
+import modux.model.dsl._
 import modux.model.rest.RestProxy
-import modux.model.schema.{MRefSchema, MSchema}
+import modux.model.schema.MSchema
 import modux.shared.BuildContext
 
+import java.util
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters._
 
@@ -50,7 +51,6 @@ object Exporter {
 
     def processModule(moduleX: ModuleX, swagger: Swagger): Map[String, Path] = {
 
-      import scala.collection.JavaConverters._
       val propertyModelConverter: PropertyModelConverter = new PropertyModelConverter
 
       def add(map: Map[String, MSchema]): Unit = {
@@ -71,9 +71,9 @@ object Exporter {
             .flatMap {
               case x: NameSpacedEntry =>
                 x
-                  .restEntry
+                  .entries
                   .collect { case y: RestEntry => (y, y.restService) }
-                  .collect { case (z, y: RestProxy) => (z, y.copy(x.ns + y.path)) }
+                  .collect { case (z, y: RestProxy) => (z, y.copy(x.namespace + y.path)) }
 
               case x: RestEntry =>
                 x.restService match {
@@ -97,7 +97,7 @@ object Exporter {
                   //************** parameters **************//
 
                   val paramDesMap: Map[String, ParamDescriptor] = entry._paramDescriptor.map { x => x._kind.name -> x }.toMap
-                  val cookieAndHeaderParams: Seq[Parameter] = entry._paramDescriptor.map(_._kind).collect {
+                  val cookieAndHeaderParams: Seq[Parameter] = entry._paramDescriptor.map(_._kind).toList.collect {
                     case x: CookieKind =>
                       val cookieParam: CookieParameter = new CookieParameter
                       cookieParam.setName(x.name)
@@ -119,7 +119,8 @@ object Exporter {
                     }
 
                   val ls: java.util.List[Parameter] = new java.util.ArrayList[Parameter]()
-                  ls.addAll(params.asJavaCollection)
+                  val collection: util.Collection[Parameter] = params.asJavaCollection
+                  ls.addAll(collection)
 
                   if (!ls.isEmpty) {
                     operation.setParameters(ls)
@@ -187,7 +188,6 @@ object Exporter {
     }
 
     def main(buildContext: BuildContext, context: Context): String = {
-      import scala.collection.JavaConverters._
 
       val swagger: Swagger = new Swagger
 
@@ -199,7 +199,7 @@ object Exporter {
 
       val reader: Reader = new Reader(swagger)
 
-      val set: Set[Class[_]] = Set()
+      val set: Set[Class[_]] = Set.empty
       val out: Swagger = reader.read(set.asJava)
 
       buildContext.get("export.mode") match {

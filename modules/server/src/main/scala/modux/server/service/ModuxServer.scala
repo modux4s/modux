@@ -6,9 +6,11 @@ import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.concat
 import akka.http.scaladsl.server.{Directives, Route}
+import com.softwaremill.macwire.Wired
 import com.typesafe.config.{Config, ConfigFactory}
 import modux.core.api.ModuleX
-import modux.model.context.Context
+import modux.macros.di.MacwireSupport
+import modux.model.context.{Context, ContextInject}
 import modux.model.{ServiceDef, ServiceEntry}
 import modux.server.lib.{ConfigBuilder, RouterCapture}
 import modux.server.model
@@ -44,6 +46,8 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
     override val executionContext: ExecutionContext = ec
   }
 
+  ContextInject.setInstance(context)
+
   val capture: Capture = context.contextThread(captureCall(context, localConfig))
 
   Http().newServerAt(host, port).bindFlow(capture.routes).onComplete {
@@ -76,6 +80,7 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   private def captureCall(context: Context, localConfig: Config): Capture = {
 
     import com.github.andyglow.config._
+    val wired: Wired = MacwireSupport.wiredInModule(context)
     val routes: mutable.ArrayBuffer[Route] = mutable.ArrayBuffer.empty
     val modules: mutable.ArrayBuffer[ModuleX] = mutable.ArrayBuffer.empty
     val specs: mutable.ArrayBuffer[ServiceDef] = mutable.ArrayBuffer.empty
@@ -85,8 +90,14 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 
     localConfig
       .getOrElse[List[String]]("modux.modules", Nil)
-      .map(x => appClassloader.loadClass(x))
-      .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
+      .flatMap { packageStr =>
+        Try(wired.wireClassInstanceByName(packageStr).asInstanceOf[ModuleX]) match {
+          case Failure(exception) =>
+            logger.error(exception.getLocalizedMessage, exception)
+            None
+          case Success(value) => Option(value)
+        }
+      }
       .zipWithIndex
       .foreach { case (moduleX, idx) =>
 
@@ -123,6 +134,6 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
         }
       }
 
-    model.Capture(Directives.concat(routes: _*), modules, specs, serviceEntry)
+    model.Capture(Directives.concat(routes.toList: _*), modules, specs, serviceEntry)
   }
 }

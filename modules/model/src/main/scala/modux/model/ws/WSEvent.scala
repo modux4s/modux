@@ -1,11 +1,9 @@
 package modux.model.ws
 
-
 import akka.actor.typed.ActorRef
 import akka.actor.{ActorRef => CActorRef}
 import akka.http.scaladsl.model.ws.Message
-import modux.model.header.RequestHeader
-
+import modux.model.header.Invoke
 
 //************** commands **************//
 sealed trait WSCommand
@@ -16,7 +14,7 @@ final case class SendMessage[OUT](message: OUT) extends WSCommand
 
 final case class CloseConnection(forced: Boolean, id: String) extends WSCommand
 
-final case class HandleOut(actorRef: CActorRef, requestHeader: RequestHeader) extends WSCommand
+final case class HandleOut(actorRef: CActorRef, invoke: Invoke) extends WSCommand
 
 final case class ConnectionRef[OUT] private(connectionID: String, actorRef: ActorRef[WSCommand]) {
   def id: String = connectionID

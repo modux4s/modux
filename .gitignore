@@ -22,3 +22,4 @@ project/project/
 project/target/
 .scala_dependencies
 .worksheet
+/.bsp/

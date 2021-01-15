@@ -1,14 +1,15 @@
 package modux.macros.service
 
 import akka.NotUsed
+import akka.http.scaladsl.server.Directives
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import modux.macros.MacroUtils
 import modux.macros.MacroUtils._
 import modux.macros.utils.SchemaUtils
-import modux.model._
 import modux.model.dsl.RestEntry
 import modux.model.exporter.SchemaDescriptor
-import modux.model.rest.{AsPath, AsPathParam, Path, PathMetadata}
+import modux.model.rest._
 import modux.model.ws.WSEvent
 
 import scala.collection.mutable
@@ -19,7 +20,6 @@ import scala.util.{Failure, Success, Try => stry}
 object ServiceSupportMacro {
 
   def staticServe(c: blackbox.Context)(url: c.Expr[String], dir: c.Expr[String]): c.Expr[RestEntry] = {
-
     val staticUrl: String = {
       val x: String = c.eval(url)
       val v1: String = if (x.endsWith("/")) {
@@ -30,10 +30,12 @@ object ServiceSupportMacro {
 
       if (v1.startsWith("/")) v1.substring(1) else v1
     }
+
     val staticDir: String = c.eval(dir)
 
     val rule: String = staticUrl.split("/").map(x => x.qt).mkString("/")
     val slash: String = if (staticDir.endsWith("/")) "" else "/"
+    val finalStaticDir: String = if (staticDir.startsWith("/")) staticDir.substring(1) else staticDir
 
     c.Expr[RestEntry](
       c.parse(
@@ -48,9 +50,9 @@ object ServiceSupportMacro {
            |    override def route(extensions: Seq[RestEntryExtension]): Route = {
            |      (akkaGet & pathPrefix($rule)) {
            |        pathEndOrSingleSlash {
-           |          getFromDirectory(s"$staticDir${slash}index.html")
+           |          getFromResource(s"$finalStaticDir${slash}index.html")
            |        } ~
-           |        getFromDirectory("$staticDir")
+           |        getFromResourceDirectory("$finalStaticDir")
            |      }
            |    }
            |  }
@@ -89,7 +91,7 @@ object ServiceSupportMacro {
     }
   }
 
-  def restServiceBuilder(c: blackbox.Context)(method: String, url: c.Expr[String], funcRef: c.Tree): c.Expr[RestEntry] = {
+  def restServiceBuilder(c: blackbox.Context)(method: Option[String], url: c.Expr[String], funcRef: c.Tree): c.Expr[RestEntry] = {
     import c.universe._
 
     //************** INITIALIZATION **************//
@@ -98,19 +100,30 @@ object ServiceSupportMacro {
     val isCompile: Boolean = sys.props.get("modux.mode").forall(_ == "compile")
     lazy val urlValue: String = c.eval[String](url)
     lazy val parsedPath: PathMetadata = extractVariableName(c)(urlValue)
-    lazy val parsedArgumentsMap: Map[String, AsPathParam] = parsedPath.parsedArgumentsMap
-    val functionRefClassName: String = funcRef.tpe.typeSymbol.fullName
+    lazy val parsedArgumentsMap: Map[String, Path] = parsedPath.parsedArgumentsMap
 
-    if (!functionRefClassName.startsWith("scala.Function")) {
-      c.abort(c.enclosingPosition, s"A function must be passed as second parameter. You pass '$functionRefClassName'")
-    } else if (parsedArgumentsMap.size + parsedPath.queryParams.size != argsMap.size) {
-      c.abort(c.enclosingPosition, s"Arguments lengths doesn't match with path arguments length in path '$urlValue'.")
-    } else if (!argsMap.keySet.forall(x => parsedPath.queryParams.contains(x) || parsedArgumentsMap.contains(x))) {
-      c.abort(c.enclosingPosition, s"Some arguments name doesn't match with the path arguments.")
-    } else if (parsedPath.queryParams.isEmpty && parsedPath.pathParams.isEmpty) {
-      c.abort(c.enclosingPosition, "Invalid path")
+    val parsedArgMapSize: Int = parsedArgumentsMap.size
+    val expectedSize: Int = parsedArgMapSize + parsedPath.queryParams.size
+    val functionRefArgsSize: Int = {
+      if (funcRef.tpe.toString.startsWith("modux.model.service.Call") || funcRef.tpe.typeArgs.head.toString.startsWith("modux.model.service.Call")) {
+        0
+      } else {
+        funcRef.tpe.typeArgs.dropRight(1).size
+      }
     }
+    val matchByTypes: Boolean = functionRefArgsSize == parsedArgMapSize
 
+    if (expectedSize != functionRefArgsSize) {
+      c.abort(c.enclosingPosition, s"Arguments lengths doesn't match with path arguments length in path '$urlValue'.")
+    } else {
+      val matchByNameArgs: Boolean = argsMap.keySet.forall(x => parsedPath.queryParams.contains(x) || parsedArgumentsMap.contains(x))
+
+      if (!(argsMap.size == 1 && parsedPath.hasAnything && parsedArgMapSize == 1) && !(matchByNameArgs || matchByTypes)) {
+        c.abort(c.enclosingPosition, s"Some arguments name doesn't match with the path arguments.")
+      } else if (parsedPath.queryParams.isEmpty && parsedPath.pathParams.isEmpty) {
+        c.abort(c.enclosingPosition, "Invalid path")
+      }
+    }
     val treeBuild: String = {
       if (isCompile) {
         serverMode(c)(method, urlValue, funcRef, parsedPath)
@@ -118,7 +131,6 @@ object ServiceSupportMacro {
         exportMode(c)(method, urlValue, funcRef, parsedPath)
       }
     }
-
     c.Expr(c.parse(treeBuild))
   }
 
@@ -129,41 +141,57 @@ object ServiceSupportMacro {
     c.Expr[Option[SchemaDescriptor]](c.parse(str))
   }
 
-  def serverMode(c: blackbox.Context)(method: String, urlValue: String, funcRef: c.Tree, parsedPath: PathMetadata): String = {
+  def serverMode(c: blackbox.Context)(method: Option[String], urlValue: String, funcRef: c.Tree, parsedPath: PathMetadata): String = {
     import c.universe._
 
     //************** UTILS **************//
-    def inferMethod(defaultValue: String, hasNotUsedParam: Boolean): String = {
-      if (hasNotUsedParam) s"akka.http.scaladsl.server.Directives.$defaultValue"
-      else "akka.http.scaladsl.server.Directives.post"
+    def inferMethod(defaultValue: Option[String], hasNotUsedParam: Boolean): String = {
+      defaultValue match {
+        case Some(v) =>
+          val result: String = {
+            if (hasNotUsedParam) {
+              s"akka.http.scaladsl.server.Directives.$v"
+            } else {
+              "akka.http.scaladsl.server.Directives.post"
+            }
+          }
+
+          s" & $result"
+        case None => ""
+      }
     }
 
-    def getType(tag: c.universe.Type): String = tag.toString match {
+    def getType(tag: String): String = tag match {
       case "Int" => "IntNumber"
       case "String" => "Segment"
       case "Double" => "DoubleNumber"
       case _ => c.abort(c.enclosingPosition, s"Supported type for path params: Int, String and Double. Received $tag.")
     }
 
-    def iterator(params: Seq[Path], argsMap: Map[String, c.universe.ValDef]): Seq[String] = params match {
-      case Nil => Nil
-      case x +: xs =>
+    def pathBuilder(params: Seq[Path], argsMap: Map[String, String]): String = {
 
-        x match {
-          case AsPath(name) => s""" "$name" """ +: iterator(xs, argsMap)
-          case AsPathParam(name) =>
+      def iterator(params: Seq[Path], argsMap: Map[String, String]): Seq[String] = params match {
+        case Nil => Nil
+        case x +: xs =>
 
-            argsMap.get(name) match {
-              case Some(value) => getType(value.tpt.tpe) +: iterator(xs, argsMap)
-              case None => c.abort(c.enclosingPosition, s"Missing argument $name")
-            }
-        }
+          //noinspection ScalaUnusedSymbol
+          x match {
+            case AsPath(name) => s""" "$name" """ +: iterator(xs, argsMap)
+            case AsPathParam(name) =>
+
+              argsMap.get(name) match {
+                case Some(value) => getType(value) +: iterator(xs, argsMap)
+                case None => c.abort(c.enclosingPosition, s"Missing argument $name")
+              }
+            case AnythingPath => Seq("  Remaining ")
+            case AsRegexPath(name, regex) => c.abort(c.enclosingPosition, s"Missing implementation of RegexPath")
+          }
+      }
+
+      iterator(params, argsMap).mkString(" / ")
     }
 
-    def pathBuilder(params: Seq[Path], argsMap: Map[String, c.universe.ValDef]): String = iterator(params, argsMap).mkString(" / ")
-
-    def getConverter(t: c.Type): String = {
-      val str: String = t.toString
+    def getConverter(str: String): String = {
       if (SUPPORTED_ITERABLE.contains(str)) {
         s".to$str"
       } else {
@@ -172,6 +200,7 @@ object ServiceSupportMacro {
     }
 
     //************** INITIALIZATION **************//
+
     val hasNoArgs: Boolean = funcRef.tpe.typeConstructor.toString.startsWith("modux.model.service.Call")
     val callType: c.universe.Type = {
       if (hasNoArgs)
@@ -180,8 +209,21 @@ object ServiceSupportMacro {
         funcRef.tpe.resultType.typeArgs.last
     }
 
-    val argsName: Seq[String] = funcRef.collect { case t: ValDef => t }.map(_.name.toString)
-    val argsMap: Map[String, c.universe.ValDef] = funcRef.collect { case t: ValDef => t }.map(x => x.name.toString -> x).toMap
+    val (argsName, argsMap) = {
+      val args: List[c.universe.Type] = funcRef.tpe.typeArgs
+      val finalArgs: List[c.universe.Type] = if (args.size > 1) args.dropRight(1) else Nil
+
+      val argsNameLocal: Seq[String] = parsedPath.pathParams.collect {
+        case AsPathParam(name) => name
+        case AnythingPath => "rem"
+      } ++ parsedPath.queryParams
+
+      val argsTypesLocal: List[String] = finalArgs.map(_.toString)
+      val argsMap: Map[String, String] = argsNameLocal.zip(argsTypesLocal).toMap
+
+      (argsNameLocal, argsMap)
+
+    }
 
     val requestType: c.universe.Type = callType.typeArgs.head
     val responseType: c.universe.Type = callType.typeArgs.last
@@ -194,10 +236,11 @@ object ServiceSupportMacro {
 
     lazy val pathTpl: String = {
       val tmp: String = pathBuilder(parsedPath.pathParams, argsMap)
+
       if (isWebSocket) {
         s"(__path__($tmp))"
       } else {
-        s"(__path__($tmp) & ${inferMethod(method, hasNotUsedParam)})"
+        s"(__path__($tmp) ${inferMethod(method, hasNotUsedParam)})"
       }
     }
 
@@ -229,8 +272,8 @@ object ServiceSupportMacro {
 
       if (isWebSocket) {
         s"""
-           |extractRequest{ __request__ =>
-           |  handleWebSocketMessages(webSocketManager.listen(AkkaUtils.mapRequest(__request__)))
+           |extractRequestContext{ __request__ =>
+           |  handleWebSocketMessages(webSocketManager.listen(AkkaUtils.createInvoke(__request__)))
            |}
            |""".stripMargin
       } else if (isSourceRequest) {
@@ -240,12 +283,13 @@ object ServiceSupportMacro {
         if (isByteString) {
           s"""
              |extractDataBytes{__src__ =>
-             |  extractRequest{__request__ =>
-             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |  extractRequestContext{__request__ =>
+             |    val __invoke__ = AkkaUtils.createInvoke(__request__)
+             |    val srv = AkkaUtils.check(serviceCall(__src__, __invoke__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
-             |      case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse{$responseTpl}
+             |      case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
              |    }
              |  }
              |}
@@ -253,43 +297,46 @@ object ServiceSupportMacro {
         } else {
           val requestTypeStr: String = fullName(c)(requestType.typeArgs.head)
           s"""
-             |extractRequest{__request__ =>
+             |extractRequestContext{__request__ =>
              |  import modux.macros.utils.SerializationUtil
              |
              |  entityAkka(SerializationUtil.moduxAsSource[$requestTypeStr]){__src__ =>
-             |    val srv = AkkaUtils.check(serviceCall(__src__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |    val __invoke__ = AkkaUtils.createInvoke(__request__)
+             |    val srv = AkkaUtils.check(serviceCall(__src__, __invoke__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
-             |      case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse(__requestHeader__){$responseTpl}
+             |      case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
              |    }
              |  }
              |}
              |""".stripMargin
         }
       } else {
-        val requestTypeStr: String = fullName(c)(requestType)
 
         if (isEmptyRequest) {
+          val requestTypeStr: String = if (same(c)(requestType, definitions.UnitTpe)) "()" else fullName(c)(requestType)
           s"""
-             |extractRequest{__request__ =>
-             |  val srv = AkkaUtils.check(serviceCall($requestTypeStr, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |extractRequestContext{__request__ =>
+             |  val __invoke__ = AkkaUtils.createInvoke(__request__)
+             |  val srv = AkkaUtils.check(serviceCall($requestTypeStr, __invoke__))
              |  onComplete($onCompleteTpl){
              |    case Failure(e) =>
              |      $errorTpl
-             |    case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse(__requestHeader__){$responseTpl}
+             |    case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
              |  }
              |}
              |"""
         } else {
           s"""
-             |extractRequest{ __request__ =>
-             |  entityAkka(as[$requestTypeStr]){ __entity__ =>
-             |    val srv = AkkaUtils.check(serviceCall(__entity__, AkkaUtils.mapRequest(__request__), modux.model.header.ResponseHeader.Default))
+             |extractRequestContext{ __request__ =>
+             |  entityAkka(as[$requestType]){ __entity__ =>
+             |    val __invoke__ = AkkaUtils.createInvoke(__request__)
+             |    val srv = AkkaUtils.check(serviceCall(__entity__, __invoke__))
              |    onComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
-             |      case Success((__value__, __requestHeader__)) => AkkaUtils.mapResponse(__requestHeader__){$responseTpl}
+             |      case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
              |    }
              |  }
              |}
@@ -309,8 +356,27 @@ object ServiceSupportMacro {
     }
 
     def bodyTpl: String = {
-      val parsedArguments: Seq[AsPathParam] = parsedPath.parsedArguments
-      val argsType: String = parsedArguments.flatMap(x => argsMap.get(x.name)).map(x => s""" ${x.name}: ${x.tpt.tpe} """).mkString("(", ",", ") =>")
+
+      //val parsedArgumentsMap: Map[String, Path] = parsedPath.parsedArgumentsMap
+      val parsedArguments: Seq[Path] = parsedPath.parsedArguments
+
+      val additionalArguments: Seq[String] = {
+        if (parsedPath.hasAnything) {
+          Seq(s" rem: String")
+        } else {
+          Nil
+        }
+      }
+
+      val argsType: String = (
+        parsedArguments
+          .flatMap { x =>
+            val name: String = x.name
+            for (v <- argsMap.get(name)) yield s""" $name: $v """
+          } ++ additionalArguments
+        )
+        .mkString("(", ",", ") =>")
+
       val pathArguments: String = if (parsedArguments.isEmpty) "" else argsType
       val argumentsCall: String = if (hasNoArgs) "" else argsName.mkString("(", ", ", ")")
 
@@ -320,6 +386,7 @@ object ServiceSupportMacro {
         if (isWebSocket) {
           entityTpl
         } else {
+
           s"""
              |val serviceCall: ${callType.toString} = callback$argumentsCall
              |$entityTpl
@@ -334,35 +401,35 @@ object ServiceSupportMacro {
           // (name - arg name - parameter arg - converter)
           val queryParams: Seq[(String, String, String, String)] = parsedPath
             .queryParams
-            .flatMap(x => argsMap.get(x))
-            .map { met =>
+            .flatMap { x =>
+              for (met <- argsMap.get(x)) yield {
+                val name: String = x
+                val tpe: String = met
+                val argName: String = s"${name}Tmp"
 
-              val name: String = met.name.toString
-              val tpe: c.Type = met.tpt.tpe
-              val argName: String = s"${name}Tmp"
-
-              val (param, converter) = {
-                if (tpe =:= typeOf[String]) {
-                  if (tpe.weak_<:<(typeOf[Option[_]])) {
-                    (s""" "$name".? """, "")
-                  } else if (tpe.weak_<:<(typeOf[Iterable[_]])) {
-                    (s""" "$name".* """, getConverter(tpe.typeConstructor))
+                val (param, converter) = {
+                  if (tpe == "String") {
+                    if (tpe.startsWith("Option")) {
+                      (s""" "$name".? """, "")
+                    } else if (MacroUtils.isIterable(tpe)) {
+                      (s""" "$name".* """, getConverter(MacroUtils.extractSuperType(tpe)))
+                    } else {
+                      (s""" "$name" """, "")
+                    }
                   } else {
-                    (s""" "$name" """, "")
-                  }
-                } else {
-                  if (tpe.weak_<:<(typeOf[Option[_]])) {
-                    val tpeStr: String = tpe.typeArgs.mkString(",")
-                    (s""" "$name".as[$tpeStr].? """, "")
-                  } else if (tpe.weak_<:<(typeOf[Iterable[_]])) {
-                    val tpeStr: String = tpe.typeArgs.mkString(",")
-                    (s""" "$name".as[$tpeStr].* """, getConverter(tpe.typeConstructor))
-                  } else {
-                    (s""" "$name".as[$tpe] """, "")
+                    if (tpe.startsWith("Option")) {
+                      val tpeStr: String = MacroUtils.extractSubType(tpe)
+                      (s""" "$name".as[$tpeStr].? """, "")
+                    } else if (MacroUtils.isIterable(tpe)) {
+                      val tpeStr: String = MacroUtils.extractSubType(tpe)
+                      (s""" "$name".as[$tpeStr].* """, getConverter(MacroUtils.extractSuperType(tpe)))
+                    } else {
+                      (s""" "$name".as[$tpe] """, "")
+                    }
                   }
                 }
+                (name, argName, param, converter)
               }
-              (name, argName, param, converter)
             }
 
           val parameterArgs: String = queryParams.map { case (_, _, x, _) => x }.mkString(", ")
@@ -385,13 +452,20 @@ object ServiceSupportMacro {
       //************** paths params processing **************//
 
       s"""
-         |{$pathArguments
-         |  $queryParamTpl
-         |}
+         |    {$pathArguments
+         |      $queryParamTpl
+         |    }
          |""".stripMargin
     }
 
-    def tpl: String = s"$pathTpl($bodyTpl)"
+    val tpl: String = {
+
+      s"""
+         |ignoreTrailingSlash  {
+         |  $pathTpl$bodyTpl
+         |}
+         |""".stripMargin
+    }
 
     s"""
        |modux.model.dsl.RestEntry(
@@ -413,7 +487,9 @@ object ServiceSupportMacro {
        |      import akka.stream.scaladsl.Sink
        |      import modux.model.dsl.RestEntryExtension
        |
-       |      private val callback = $funcRef
+       |      private val callback = {
+       |        ${c.universe.showCode(funcRef)}
+       |      }
        |      $extraAttrs
        |
        |      override def route(__extensions: Seq[RestEntryExtension]): Route = {
@@ -424,7 +500,7 @@ object ServiceSupportMacro {
        |""".stripMargin
   }
 
-  def exportMode(c: blackbox.Context)(method: String, urlValue: String, funcRef: c.Tree, parsedPath: PathMetadata): String = {
+  def exportMode(c: blackbox.Context)(method: Option[String], urlValue: String, funcRef: c.Tree, parsedPath: PathMetadata): String = {
     import c.universe._
     val schemaUtil: SchemaUtils[c.type] = new SchemaUtils(c)
 
@@ -466,7 +542,7 @@ object ServiceSupportMacro {
         val head: c.universe.Type = requestType.typeArgs.head
         schemaUtil.extractArraySchema(head, storeRef)
       } else {
-        val _ = schemaUtil.iterator(requestType, storeRef, false, false)
+        val _ = schemaUtil.iterator(requestType, storeRef, isRequired = false, isNullable = false)
         schemaUtil.extractSchema(requestType, storeRef)
       }
     }
@@ -478,7 +554,7 @@ object ServiceSupportMacro {
         val head: c.universe.Type = responseType.typeArgs.head
         schemaUtil.extractArraySchema(head, storeRef)
       } else {
-        val _ = schemaUtil.iterator(responseType, storeRef, false, false)
+        val _ = schemaUtil.iterator(responseType, storeRef, isRequired = false, isNullable = false)
         schemaUtil.extractSchema(responseType, storeRef)
       }
     }

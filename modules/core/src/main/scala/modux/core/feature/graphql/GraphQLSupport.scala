@@ -3,15 +3,16 @@ package modux.core.feature.graphql
 import akka.NotUsed
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.{Directives, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import jsoft.graphql.core.{EncoderTypeDerivation, GraphQL, StructTypeDerivation}
 import jsoft.graphql.model.{Binding, Interpreter}
-import modux.model.dsl.{RestEntry, RestEntryExtension}
-import modux.model.rest.RestInstance
+import modux.model.directives.CallDirectives
+import modux.model.service.Call
 
-trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation {
+import scala.concurrent.ExecutionContext
+
+trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation with CallDirectives {
 
   private final val JSON = MediaTypes.`application/json`
   private final val TEXT = MediaTypes.`text/plain`
@@ -23,30 +24,23 @@ trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation {
     )
   }
 
-  def graphql(name: String, binding: Binding, enableSchemaValidation: Boolean = true, enableIntrospection: Boolean = true): RestEntry = {
-    import akka.http.scaladsl.server.Directives._
+  def createGraphQL(binding: => Binding, enableSchemaValidation: Boolean = true, enableIntrospection: Boolean = true)(implicit ec: ExecutionContext): Call[Option[String], Source[ByteString, NotUsed]] = {
     val interpreter: Interpreter = GraphQL.interpreter(binding, enableSchemaValidation = enableSchemaValidation, enableIntrospection = enableIntrospection)
 
-    RestEntry(
-      new RestInstance {
-        override def route(extensions: Seq[RestEntryExtension]): Route = {
-          path(name) {
+    extractMethod { method =>
 
-            parameterMap { queryParams =>
-              get {
-                complete(200, interpreter.asAkkaSource(queryParams, None))
-              } ~
-                post {
-                  entity(as[Option[String]]) { body =>
-                    complete(200, interpreter.asAkkaSource(queryParams, body))
-                  }
-                }
-            }
+      val methodValue: String = method.value
+
+      if (methodValue == "GET" || methodValue == "POST") {
+        extractRequest { req =>
+          extractBody { input =>
+            interpreter.asAkkaSource(req.uri.query().toMap, input)
           }
         }
+      } else {
+        CallDirectives.BadRequest
       }
-    )
-
+    }
   }
 
 }

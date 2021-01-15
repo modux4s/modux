@@ -1,32 +1,35 @@
 # Introduction
 
 Modux is a simple and lightweight microservice server for Scala inspired on 
-[Lagom Framework](https://www.lagomframework.com/). The goal is speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
+[Lagom Framework](https://www.lagomframework.com/). The aim is to speed up development using a set of directives backed by [Scala](https://www.scala-lang.org/) and [Akka's](https://akka.io/) technologies.
 
-[![version](https://img.shields.io/badge/version-1.2.1-green.svg)](https://github.com/modux4s/modux)
+[![version](https://img.shields.io/badge/version-1.2.2-green.svg)](https://github.com/modux4s/modux)
 
-# Features 
-
+## Features
 
 * Easy to learn and lightweight.
 * Minimal configurations.
-* Microservices defined by DSL.
+* Microservices DSL based.
 * Open API 3.0 and 2.0 exporting based on Microservices definitions. You can extend documentations.
 * Streaming and Kafka support.
-* [GraphQL Support](https://github.com/joacovela16/graphql4s).
+* GraphQL support.
+* Web Security through Pac4j.
+* Twirl support
+* Dependency Injection through Macwire.
 * Websocket.
 * Serialization support.
 * Hot-Reloading.
 * Clustering support.
 * Easy production building.
-* Compatible with Scala 2.12
+* Compatible with Scala 2.12 and 2.13.
+
 
 # Install
 
 1. Add to **plugin.sbt** 
 ```scala
 resolvers += Resolver.bintrayRepo("jsoft", "maven")
-addSbtPlugin("jsoft.modux" %% "modux-plugin" % "1.2.1")
+addSbtPlugin("jsoft.modux" %% "modux-plugin" % "1.2.2")
 ```
 2. Enable plugin `enablePlugins(ModuxPlugin)` in your **build.sbt**.
 
@@ -36,24 +39,39 @@ Run `sbt new modux4s/modux.g8` to build a Modux template project then `sbt ~run`
 
 # Quick Example
 
-The basic project structure follows a simple sbt project structure, but it is required a "conf"  folder to read "logback.xml" and "application.conf". 
-
-File "application.conf" includes Modux modules and Akka settings.
-
+The basic project structure follows next sbt project structure.
 ```
 root
+  /app
+    /services
+        /service1
+            /impl
+            Service1Def
+        ...
+        /serviceN
+            /impl
+            ServiceNDef
+    /modules
+        Module1
+        ...
+        ModuleN
+    /views
+        home.html.scala 
+        userDetail.html.scala 
+  /public
+    style.css
+    utils.js
+    index.html
   /conf
     application.conf
     logback.xml
-  /project
-  /src
   build.sbt
 ```
 
 Modux defines microservices using **Service** interfaces. Lets define a basic User service.
-        
+
 ```scala
-trait UserService extends Service with SerializationSupport{   
+trait UserService extends Service with SerializationSupport{
 
   implicit val userCodec: Codec[User] = codecFor[User]
 
@@ -62,25 +80,23 @@ trait UserService extends Service with SerializationSupport{
 
   override def serviceDef: ServiceDef =
     namedAs("user-service")
-      .withCalls(
+      .entry(
         post("/user", addUser _),
         get("/user/:id", getUser _)
       )
-
 }
 ```
-
 
 implemented by...
 
 ```scala
-case class UserServiceImpl(context: Context) extends UserService{
+class UserServiceImpl extends UserService{
 
-  def addUser(): Call[User, Unit] = Call{ user =>
+  def addUser(): Call[User, Unit] = extractBody{ user =>
     logger.info(s"user $user created")
   }
 
-  def getUser(id: String): Call[Unit, User] = Call.empty {
+  def getUser(id: String): Call[Unit, User] = onCall {
     if (math.random() < 0.5) {
       NotFound(s"User $id not found")
     } else
@@ -89,18 +105,16 @@ case class UserServiceImpl(context: Context) extends UserService{
 }
 ```
 
-To use this service, it must be register through trait **ModuleX**. 
+To use this service, it must be register through trait **ModuleX**.
 
 ```scala
-case class Module(context: Context) extends ModuleX {
-  override def providers: Seq[Service] = Seq(
-    UserService(context)
-  )
+class Module extends ModuleX {
+  override def providers: Seq[Service] = Seq(wire[UserService])
 }
 ```
 
 
-Finally add to **/conf/application.conf** under **modux.modules** the classpath of Module.
+Finally, add to **/conf/application.conf** under **modux.modules** the classpath of Module.
 
 > modux.modules = [ "simple.example.Module" ]
 

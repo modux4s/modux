@@ -1,18 +1,20 @@
+enablePlugins(UpdatesPlugin)
 
 import sbt._
 
-ThisBuild / version := "1.2.1"
+ThisBuild / version := "1.2.2-SNAPSHOT"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
-ThisBuild / scalaVersion := "2.12.12"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
 ThisBuild / resolvers += "io.confluent" at "https://packages.confluent.io/maven/"
+ThisBuild / resolvers += Resolver.bintrayRepo("jsoft", "maven")
+ThisBuild / resolvers += Resolver.bintrayRepo("sbt", "sbt-plugin-releases")
 ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
-Global / onChangedBuildSource := ReloadOnSourceChanges
+
+onChangedBuildSource in Global := ReloadOnSourceChanges
 
 bintrayReleaseOnPublish in ThisBuild := false
-resolvers += Resolver.mavenLocal
 
 lazy val disablingPublishingSettings =
   Seq(skip in publish := true, publishArtifact := false)
@@ -29,6 +31,7 @@ lazy val enablingPublishingSettings = Seq(
   bintrayOrganization := Option("jsoft"),
 )
 
+
 lazy val akkaDeps = Seq(
   libraryDependencies ++= Seq(
     Deps.configScala,
@@ -43,6 +46,7 @@ lazy val akkaDeps = Seq(
 
 lazy val common = (project in file("./modules/common"))
   .settings(
+    crossScalaVersions := Deps.scalaVersions,
     name := "modux-common",
     enablingPublishingSettings,
     akkaDeps,
@@ -56,6 +60,10 @@ lazy val common = (project in file("./modules/common"))
       Deps.jacksonYaml,
       Deps.jacksonXml,
       Deps.woodstoxCore,
+      Deps.pac4jCore,
+      Deps.pac4jOAuth,
+      Deps.pac4jJwt,
+      Deps.pac4jHttp
     ),
 
   )
@@ -64,6 +72,7 @@ lazy val model = (project in file("./modules/model"))
   .aggregate(common)
   .dependsOn(common)
   .settings(
+    crossScalaVersions := Deps.scalaVersions,
     name := "modux-model",
     enablingPublishingSettings
   )
@@ -74,6 +83,7 @@ lazy val swaggerExportV3 = (project in file("./modules/export/swagger3"))
   .dependsOn(devShared, core)
   .settings(
     name := "modux-swagger-v3",
+    crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
     akkaDeps,
     libraryDependencies ++= Seq(
@@ -89,6 +99,7 @@ lazy val swaggerExportV2 = (project in file("./modules/export/swagger2"))
   .dependsOn(devShared, core)
   .settings(
     name := "modux-swagger-v2",
+    crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
     akkaDeps,
     libraryDependencies ++= Seq(
@@ -99,16 +110,20 @@ lazy val swaggerExportV2 = (project in file("./modules/export/swagger2"))
   )
 
 lazy val devShared = (project in file("./modules/shared"))
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "modux-shared",
+    crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
+    buildInfoKeys := Deps.buildInfo
   )
 
 lazy val plug = (project in file("./modules/plug"))
   .settings(
+//    crossScalaVersions := Nil,
     sbtPlugin := true,
     name := "modux-plug",
-    enablingPublishingSettings,
+    enablingPublishingSettings
   )
 
 lazy val macros = (project in file("./modules/macros"))
@@ -116,12 +131,17 @@ lazy val macros = (project in file("./modules/macros"))
   .dependsOn(model)
   .settings(
     name := "modux-macros",
+    crossScalaVersions := Deps.scalaVersions,
     scalacOptions ++= Seq("-language:experimental.macros"),
     enablingPublishingSettings,
     libraryDependencies ++= Seq(
+      Deps.twirlApi,
       Deps.jacksonDataformatXml,
       Deps.aaltoXmlParser,
       Deps.jacksonModuleScala,
+      Deps.macwireMacros,
+      Deps.macwireProxy,
+      Deps.macwireUtils,
     )
   )
 
@@ -130,16 +150,18 @@ lazy val core = (project in file("./modules/core"))
   .dependsOn(macros, devShared)
   .settings(
     name := "modux-core",
+    crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
-    libraryDependencies ++= Seq(Deps.graphql)
+    libraryDependencies ++= Seq(Deps.graphql, Deps.caffeine)
   )
 
 lazy val kafkaCore = (project in file("./modules/kafka"))
   .dependsOn(core)
   .settings(
     name := "modux-kafka-core",
+    crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
-    libraryDependencies ++= Seq( Deps.akkaKafka)
+    libraryDependencies ++= Seq(Deps.akkaKafka)
   )
 
 lazy val server = (project in file("./modules/server"))
@@ -147,20 +169,33 @@ lazy val server = (project in file("./modules/server"))
   .dependsOn(core)
   .settings(
     name := "modux-server",
+    crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
   )
 
 
-lazy val root = (project in file("./"))
+lazy val plugin = (project in file("./modules/plugin"))
+
   .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore, plug)
-  .dependsOn(server, devShared, plug)
+  .dependsOn(devShared, plug)
   .settings(
+//    crossScalaVersions := Nil,
     sbtPlugin := true,
     name := "modux-plugin",
     enablingPublishingSettings,
     libraryDependencies ++= Seq(
       Deps.xbean,
-      Deps.compress,
-      Defaults.sbtPluginExtra(Deps.sbtNativePackager, "1.0", "2.12")
-    )
+      Deps.compress
+    ),
+    addSbtPlugin(Deps.sbtNativePackager),
+    addSbtPlugin(Deps.twirl),
+    addSbtPlugin(Deps.sbtWeb),
+
+  )
+lazy val root = (project in file("."))
+  .aggregate(plugin)
+  .settings(
+    name := "modux4s",
+//    crossScalaVersions := Nil,
+    publish / skip := true
   )
