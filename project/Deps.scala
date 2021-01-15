@@ -5,7 +5,7 @@ import sbtbuildinfo.BuildInfoPlugin.autoImport.BuildInfoKey
 object Deps {
 
   //************** SCALA **************//
-  val scalaVersions: Seq[String] = Seq("2.12.12", "2.13.4")
+  val scalaVersions: Seq[String] = Seq("2.12.13", "2.13.4")
   //************** VERSIONS **************//
   private final val macwireVersion: String = "2.3.7"
   private final val akkaVersion: String = "2.6.10"

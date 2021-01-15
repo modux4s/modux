@@ -13,11 +13,11 @@ final case class ResponseHeader() extends LazyLogging {
   private val instructions: ArrayBuffer[ResponseCommand] = ArrayBuffer.empty
 
   private def addInstruction(instruction: ResponseCommand): ResponseHeader = {
-    instructions.append(instruction)
+    instructions += instruction
     this
   }
 
-  private[modux] def getInstructions: ArrayBuffer[ResponseCommand] = instructions
+  private[modux] def getInstructions: Seq[ResponseCommand] = instructions.toList
 
   def withStatus(code: Int): ResponseHeader = addInstruction(SetStatus(code))
 
@@ -35,7 +35,7 @@ final case class ResponseHeader() extends LazyLogging {
   def withAttributes(items: Map[String, AnyRef]): ResponseHeader = addInstruction(AddAttributes(items))
 
   def getAttribute(key: String): Option[AnyRef] = {
-    instructions.collect{ case AddAttributes(attributes) => attributes.get(key)}.flatten.headOption
+    instructions.collect { case AddAttributes(attributes) => attributes.get(key) }.flatten.headOption
   }
 
   def withHeaders(items: List[HttpHeader]): ResponseHeader = addInstruction(AddHeaders(items))

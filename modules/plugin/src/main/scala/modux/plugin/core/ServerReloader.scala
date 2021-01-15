@@ -32,12 +32,10 @@ private[modux] case class ServerReloader private(
   private lazy val baseClassloader: NamedClassLoader = {
 
     val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
-    val depsLoader: URLClassLoader = new URLClassLoader(Path.toURLs(dependencies ++ resourceDir), delegator)
-
     new NamedClassLoader(
       "mods-loader",
-      Path.toURLs(moduxModules),
-      depsLoader
+      Path.toURLs(dependencies ++ moduxModules ++ resourceDir),
+      delegator
     )
   }
 

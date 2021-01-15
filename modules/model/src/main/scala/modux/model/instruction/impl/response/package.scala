@@ -23,7 +23,7 @@ package object response {
       case ContentAs(contentType) => effect.mapEntity(x => x.withContentType(contentType))
       case AddHeaders(httpHeaders) => httpHeaders.foldLeft(effect) { case (item, x) => item.addHeader(x) }
       case AddCookies(cookies) => cookies.foldLeft(effect) { case (item, x) => item.addHeader(`Set-Cookie`(x)) }
-      case SetStatus(statusCode) => effect.withStatus(statusCode)
+      case SetStatus(statusCode) =>  effect.withStatus(statusCode)
       case AddAttributes(attributes) => attributes.foldLeft(effect) { case (item, x) => item.addAttribute(AttributeKey(x._1), x._2) }
     }
   }

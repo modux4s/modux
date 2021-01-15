@@ -9,8 +9,9 @@ import modux.core.feature.security.SecuritySupport.{Response, WC}
 import modux.core.feature.security.adapter.ModuxAdapter
 import modux.core.feature.security.context.ModuxWebContext
 import modux.core.feature.security.storage.SessionStorage
+import modux.model.directives.CallDirectives
 import modux.model.header.Invoke
-import modux.model.service.{Call, CallDirectives}
+import modux.model.service.Call
 import org.pac4j.core.config.Config
 import org.pac4j.core.engine._
 import org.pac4j.core.util.Pac4jConstants
@@ -114,7 +115,7 @@ trait SecuritySupport extends CallDirectives {
 
   }
 
-  final def callback(
+  final def SecureCallback(
                       defaultUrl: String,
                       saveInSession: Boolean = true,
                       multiProfile: Boolean = true,
@@ -137,7 +138,7 @@ trait SecuritySupport extends CallDirectives {
     }
   }
 
-  final def logout(
+  final def SecureLogout(
                     defaultUrl: String = Pac4jConstants.DEFAULT_URL_VALUE,
                     logoutPatternUrl: String = Pac4jConstants.DEFAULT_LOGOUT_URL_PATTERN_VALUE,
                     localLogout: Boolean = true,

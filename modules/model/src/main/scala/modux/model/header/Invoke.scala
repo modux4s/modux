@@ -1,7 +1,6 @@
 package modux.model.header
 
-import akka.http.scaladsl.marshalling.{ToResponseMarshallable, ToResponseMarshaller}
-import akka.http.scaladsl.model.headers.`Set-Cookie`
+import akka.http.scaladsl.marshalling.{PredefinedToResponseMarshallers, ToResponseMarshallable, ToResponseMarshaller}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, RequestEntity}
 import akka.http.scaladsl.server.RequestContext
 import akka.stream.Materializer
@@ -12,7 +11,7 @@ import org.pac4j.core.profile.UserProfile
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
-final case class Invoke private(requestContext: RequestContext, profiles: List[UserProfile], responseHeader: ResponseHeader) extends LazyLogging {
+final case class Invoke(private[modux] val requestContext: RequestContext, private[modux] val profiles: List[UserProfile], private[modux] val responseHeader: ResponseHeader) {
 
   private[modux] def request: HttpRequest = requestContext.request
 
@@ -28,6 +27,8 @@ final case class Invoke private(requestContext: RequestContext, profiles: List[U
 
   def withResponseHeader(item: ResponseHeader): Invoke = Invoke(requestContext = requestContext, profiles = profiles, responseHeader = item)
 
+  def mapResponse(f: ResponseHeader => ResponseHeader): Invoke = withResponseHeader(f(responseHeader))
+
   def isValid: Boolean = responseHeader.getInstructions.forall {
     case SetStatus(statusCode) => statusCode < 300
     case _ => true
@@ -36,16 +37,16 @@ final case class Invoke private(requestContext: RequestContext, profiles: List[U
 
 object Invoke {
 
-  def fail[T](invoke: Invoke)(implicit m: ToResponseMarshaller[HttpResponse]): Future[T] = {
+  def fail[T](invoke: Invoke, response: HttpResponse = HttpResponse()): Future[T] = {
     val responseHeader: ResponseHeader = invoke.responseHeader
     Future.failed(
       ResponseAsFalseFail(
         new ToResponseMarshallable {
           override type T = HttpResponse
 
-          override def value: HttpResponse = ResponseInstruction(HttpResponse(), responseHeader.getInstructions.toSeq)
+          override def value: HttpResponse = ResponseInstruction(response, responseHeader.getInstructions)
 
-          override implicit def marshaller: ToResponseMarshaller[HttpResponse] = m
+          override implicit def marshaller: ToResponseMarshaller[HttpResponse] = PredefinedToResponseMarshallers.fromResponse
         }
       )
     )

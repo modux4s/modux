@@ -14,6 +14,7 @@ Modux is a simple and lightweight microservice server for Scala inspired on
 * Streaming and Kafka support.
 * GraphQL support.
 * Web Security through Pac4j.
+* Twirl support
 * Dependency Injection through Macwire.
 * Websocket.
 * Serialization support.
@@ -38,22 +39,32 @@ Run `sbt new modux4s/modux.g8` to build a Modux template project then `sbt ~run`
 
 ## Quick Example
 
-The basic project structure follows a simple sbt project structure, but it is required a "conf"  folder to read "logback.xml" and "application.conf". 
-
-File "application.conf" includes Modux modules and Akka settings.
-
+Next, we show a basic project structure as example.
 ```
 root
   /app
     /services
+        /service1
+            /impl
+            Service1Def
+        ...
+        /serviceN
+            /impl
+            ServiceNDef
     /modules
-    /views 
-  /assets
+        Module1
+        ...
+        ModuleN
+    /views
+        home.html.scala 
+        userDetail.html.scala 
   /public
+    style.css
+    utils.js
+    index.html
   /conf
     application.conf
     logback.xml
-    
   build.sbt
 ```
 
@@ -73,21 +84,19 @@ trait UserService extends Service with SerializationSupport{
         post("/user", addUser _),
         get("/user/:id", getUser _)
       )
-
 }
 ```
-
 
 implemented by...
 
 ```scala
-case class UserServiceImpl(context: Context) extends UserService{
+class UserServiceImpl extends UserService{
 
-  def addUser(): Call[User, Unit] = Call{ user =>
+  def addUser(): Call[User, Unit] = extractBody{ user =>
     logger.info(s"user $user created")
   }
 
-  def getUser(id: String): Call[Unit, User] = Call.empty {
+  def getUser(id: String): Call[Unit, User] = onCall {
     if (math.random() < 0.5) {
       NotFound(s"User $id not found")
     } else
@@ -99,15 +108,13 @@ case class UserServiceImpl(context: Context) extends UserService{
 To use this service, it must be register through trait **ModuleX**. 
 
 ```scala
-case class Module(context: Context) extends ModuleX {
-  override def providers: Seq[Service] = Seq(
-    UserService(context)
-  )
+class Module extends ModuleX {
+  override def providers: Seq[Service] = Seq(wire[UserService])
 }
 ```
 
 
-Finally add to **/conf/application.conf** under **modux.modules** the classpath of Module.
+Finally, add to **/conf/application.conf** under **modux.modules** the classpath of Module.
 
 > modux.modules = [ "simple.example.Module" ]
 
@@ -123,7 +130,6 @@ Someones are:
 * **Context**: This class provides a **config**, **executionContext** and **actorSystem** reference. It is useful to use Akka Actor, Clustering and Streaming.
 You must provide a Context to instantiate a **Service** or a **ModuleX**.
 
-
 * **ServiceDef**: Defines and stores implementation and metadata about a service.
 
 * **Service**: Interface used to define a service. Provides a set of directives to create a **ServiceDef**. 
@@ -136,42 +142,35 @@ Also, is possible compose then.
 ## Call[IN, OUT]
 
 Represents a flow of data where receives an input **IN** and returns a **Future[OUT]**. Requests and responses are modeled by this entity. 
+A call is defined as 
+```scala
+type Call[IN, OUT] = (IN, Invoke) => Future[OUT]
+```
+
+where **Invoke** contains all data about request and response. Through this you can change headers, set cookies, content 
+type response and others.
 
 ```scala
 // For POST call
-def addUser(): Call[User, Unit] = Call{user => ??? }
+def addUser(): Call[User, Unit] = extractBody{user => ??? }
 
-def getUser(): Call[Unit, User] = Call.empty{ Future(User("Frank")) }
+def getUser(): Call[Unit, User] = onCall{ Future(User("Frank")) }
 
 ```
 
 Handling request headers.
 
 ```scala
-def addUser(): Call[User, Unit] = Call.withRequest{(user, request) => 
-  if (!request.hasHeader("api-version")) BadRequest("Missing header")
-} 
-
-def getUser(): Call[Unit, Unit] = Call.handleRequest{ request => 
-  if (!request.hasHeader("api-version")) BadRequest("Missing header")
-} 
-```
-
-Composing calls ...
-
-```scala
-Call.compose{request => 
-  if (request.hasHeader("someone"))
-    Call{
-      Future(User("Frank))
-    }
-  else{
-    Call{BadRequest}
+def addUser(): Call[User, Unit] = extractRequest{ request => 
+  extractBody { user => 
+    if (!request.hasHeader("api-version")) BadRequest("Missing header")
   }
-}
+} 
+
+def getUser(): Call[Unit, Unit] = extractRequest{ request => 
+  if (!request.hasHeader("api-version")) BadRequest("Missing header")
+} 
 ```
-
-
 
 ## Service Def :id=servicedef
 
@@ -190,7 +189,7 @@ A **Service** provides the next directives to create a **RestEntry**:
 Creates a RestEntry with method **GET**.
 
 ```scala
-def findById(id:String): Call[Unit, User] = Call.empty{
+def findById(id:String): Call[Unit, User] = onCall{
   NotFound(s"User $id not founded")
 }
 
@@ -204,7 +203,7 @@ get("/user/:id", findById _)
 Creates a RestEntry with method **POST**.
 
 ```scala
-def addUser(): Call[User, Unit] = Call{user => ???}
+def addUser(): Call[User, Unit] = extractBody{user => ???}
 
 post("/user", addUser _)
 ```
@@ -229,7 +228,7 @@ delete("/user?ages", deleteUsers _)
 Creates a RestEntry with method **HEAD**.
 
 ```scala
-def addUser(): Call[User, Unit] = Call{user => ???}
+def addUser(): Call[User, Unit] = extractBody{user => ???}
 
 head("/user", addUser _)
 ```
@@ -243,7 +242,7 @@ head("/user", addUser _)
 Creates a RestEntry with method **PUT**.
 
 ```scala
-def addUser(): Call[User, Unit] = Call{user => ???}
+def addUser(): Call[User, Unit] = extractBody{user => ???}
 
 put("/user", addUser _)
 ```
@@ -255,7 +254,7 @@ put("/user", addUser _)
 
 Creates a RestEntry with method **PATCH**. 
 ```scala
-def addUser(): Call[User, Unit] = Call{user => ???}
+def addUser(): Call[User, Unit] = extractBody{user => ???}
 
 patch("/user", addUser _)
 ```
@@ -280,6 +279,18 @@ named("user",addUser _)
 ```
 </details>
 
+<details>
+<summary>call</summary>
+
+You can call this entry point with any valid HTTP method.
+
+```scala
+def doSomething(): Call[Unit, User] = ???
+
+call("/do/some", doSomething _)
+```
+
+</details>
 
 <details>
 <summary>statics</summary>
@@ -292,7 +303,7 @@ statics("/app/dashboard", "public/")
 ```
 </details>
 
-### Path templates 
+## Path templates 
 
 Some of this directives (get, post, delete, head, patch and put) supports urls template. It is also possible extracts the path or query params values from a url template. 
 
@@ -301,7 +312,7 @@ For example: `/user/:location?age&region`
 The implementation of this **must** have parameters with names "location", "age" and "region". No matter the order.
 
 Types supported:
-* Path params: **String**, **Int**, **Float**, **Double**.
+* Path params: **String**, **Boolean**, **Int**, **Float**, **Double**.
 * Query params: **String**, **Int**, **Float**, **Double**, **Option**, **Boolean**, **Iterable**.
 
 <details>
@@ -317,39 +328,48 @@ def example3(location:Int, age: Double, region: Boolean) = ???
 </details>
 
 
-### Rest Entry Extensions
+## Directives
 
-A RestEntry can be extended with this directives: **[circuitBreak](https://doc.akka.io/docs/akka/current/common/circuitbreaker.html)** and **[retry](https://doc.akka.io/api/akka/current/akka/pattern/RetrySupport.html)**. It's possible define a custom extension extending **RestEntryExtension**, providing a way to work with the invocation response.
+Directives are utilities to work with current request.The follow directives implements and applies **Call[IN, OUT]** to 
+extract data and response call. Many plugins supported by default applies this directives to modify call flow. 
 
-<details open>
-<summary>Examples</summary>
 
 ```scala
-get("/user/:id") extendedBy circuitBreak(maxFailure=1)
+def mapContextAsync[IN, OUT](mapper: Invoke => Future[Invoke])(inner: => Call[IN, OUT]): Call[IN, OUT]
 
-get("/user/:id") extendedBy circuitBreak(maxFailure=1, callTimeout = 10 s, resetTimeout = 60 s)
+def mapContext[IN, OUT](mapper: Invoke => Invoke)(inner: => Call[IN, OUT]): Call[IN, OUT]
 
-get("/user/:id")
-  .extendedBy(
-    circuitBreak(maxFailure=1, callTimeout = 10 s, resetTimeout = 60 s),
-    retry(attempts = 3)
-  )
+def extractContextAsync[IN, OUT](mapper: Invoke => Future[Call[IN, OUT]]): Call[IN, OUT]
+
+def extractContext[IN, OUT](mapper: Invoke => Call[IN, OUT]): Call[IN, OUT]
+
+def extractProfiles[IN, OUT](mapper: Seq[UserProfile] => Call[IN, OUT]): Call[IN, OUT]
+
+def extractRequest[IN, OUT](mapper: HttpRequest => Call[IN, OUT]): Call[IN, OUT] 
+
+def mapResponseAsync[IN, OUT](mapper: ResponseHeader => Future[ResponseHeader])(inner: => Call[IN, OUT]): Call[IN, OUT]  
+
+def mapResponse[IN, OUT](mapper: ResponseHeader => ResponseHeader)(inner: => Call[IN, OUT]): Call[IN, OUT]  
+
+def extractMethod[IN, OUT](handler: HttpMethod => Call[IN, OUT]): Call[IN, OUT]  
+
+def extractBody[IN, OUT](mapper: in => Call[IN, OUT]): Call[IN, OUT] 
+
+def onCall[IN, OUT](f: => Call[IN, OUT]): Call[IN, OUT] 
 ```
 
-</details>
-
-### Response Directives
+## Response Directives
 
 There are available some directives to response a call: **Ok**, **NotFound**, **Unauthorized**, **BadRequest**, **InternalError** and **ResponseWith**.
 
 **NotFound**
 
 ```scala
-def getUser(id:String): Call[Unit, User] = Call.empty{
+def getUser(id:String): Call[Unit, User] = onCall{
   NotFound
 }
 
-def getUser(id:String): Call[Unit, User] = Call.empty{
+def getUser(id:String): Call[Unit, User] = onCall{
   NotFound(s"User $id not founded")
 }
 ```
@@ -358,10 +378,10 @@ def getUser(id:String): Call[Unit, User] = Call.empty{
 
 case class ErrorReport(message:String)
 
-case class ServiceExample(ctx: Context) extends Service with SerializationSupport{
+class ServiceExample extends Service with SerializationSupport{
   implicit val errorReportCodec = codecFor[ErrorReport]
 
-  def getUser(id:String): Call[Unit, User] = Call.empty{
+  def getUser(id:String): Call[Unit, User] = onCall{
     NotFound(ErrorReport(s"User $id not founded"))
   }
 }
@@ -372,11 +392,11 @@ For last example is required a Marshaller for a custom entity. [**SerializationS
 Also, it is possible define customs response with directive **ResponseWith**. For example:
 
 ```scala
-def addUser(): Call[User, Unit] = Call{ user => 
+def addUser(): Call[User, Unit] = extractBody{ user => 
   ResponseWith(201, "Created")
 }
 
-def doSomething(): Call[Unit, Unit] = Call.empty{
+def doSomething(): Call[Unit, Unit] = onCall{
   ResponseWith(503)
 }
 ```
@@ -393,9 +413,8 @@ To receive a data streaming it is necessary define a function that returns a `Ca
 <summary>Examples</summary> 
 
 ```scala
-
 // receive a file 
-def receiveFile(name: String, ext: String): Call[Source[ByteString, Any], Unit] = Call{src => 
+def receiveFile(name: String, ext: String): Call[Source[ByteString, Any], Unit] = extractBody{src => 
   val file: Path = Paths.get(s"$name.$ext")
   src.runWith(FileIO.toPath(file))
 }
@@ -411,9 +430,8 @@ To send a streaming, must be returned a `Call[Unit, Source[T, Any]]`.
 <summary>Example</summary>
 
 ```scala
-
 // returns a stream of users
-def getUsers(): Call[Unit, Source[User, Any]] = Call.empty{
+def getUsers(): Call[Unit, Source[User, Any]] = onCall{
  Source(
     List[User](User("Frank"))
   )
@@ -428,7 +446,7 @@ Also it is possible "intercept" the streaming.
 
 ```scala
 
-def getUsers(): Call[Source[Int, Any], Source[Int, Any]] = Call{ src => 
+def getUsers(): Call[Source[Int, Any], Source[Int, Any]] = onCall{ src => 
  src.map(x=> x * 2)
 }
 ```
@@ -449,7 +467,7 @@ For custom entities, like "User" it is necessary declare codecs for it. Extendin
  * To connect run: wsc http://localhost:9000/ws
  * wsc = https://www.npmjs.com/package/wsc
  */
-case class SimpleExample(context: Context) extends Service with SerializationSupport{
+class SimpleExample extends Service with SerializationSupport{
 
   implicit val wsCodec: WebSocketCodec[String, User] = codecFor[String, User]
 
@@ -471,6 +489,7 @@ case class SimpleExample(context: Context) extends Service with SerializationSup
 }
 ```
 </details>
+
 
 ## Serialization Support :id=serialization
 
@@ -500,7 +519,7 @@ implicit final val DefaultCodecRegistry: CodecRegistry = {
   }
 ```
 
-#### Directives
+### Directives
 * **codecFor[T]**: creates a codec for entity **T**. If a custom CodecRegistry is provided, it can be call like `codecFor[T](customRegistry)`.
 
 * **codecFor[A, B]**: Creates a codec to handle `WSEvent[A, B]` events. For now, when websocket feature is used, this directive must by applied to serialize messages. 
@@ -511,7 +530,6 @@ implicit final val DefaultCodecRegistry: CodecRegistry = {
 A set of directives and sbt keys are available to describe microservices. See next example:
 
 ```scala
-
 override def serviceDef: ServiceDef = 
   namedAs("user-service")
     .entry(
@@ -759,10 +777,30 @@ akka {
 
 **Important**. Internally Modux creates a ActorSystem named by the **name** sbt project property. This must be taken into account when setting up a cluster. See [examples](https://www.google.com/) for details.
 
-
 # Plugins
 
-### Kafka Support
+## Rest Entry Extensions
+
+A RestEntry can be extended with this directives: **[circuitBreak](https://doc.akka.io/docs/akka/current/common/circuitbreaker.html)** and **[retry](https://doc.akka.io/api/akka/current/akka/pattern/RetrySupport.html)**. It's possible define a custom extension extending **RestEntryExtension**, providing a way to work with the invocation response.
+
+<details open>
+<summary>Examples</summary>
+
+```scala
+get("/user/:id") extendedBy circuitBreak(maxFailure=1)
+
+get("/user/:id") extendedBy circuitBreak(maxFailure=1, callTimeout = 10 s, resetTimeout = 60 s)
+
+get("/user/:id")
+  .extendedBy(
+    circuitBreak(maxFailure=1, callTimeout = 10 s, resetTimeout = 60 s),
+    retry(attempts = 3)
+  )
+```
+
+</details>
+
+## Kafka Support
 
 To enabled it, next steps must be followed. 
 
@@ -774,7 +812,7 @@ a topic name to subscribe, and an implementation with type `Topic => Future[Unit
 
 **Example**
 ```scala
-case class DefaultService(context: Context) extends Service with KafkaSupport {
+class DefaultService extends Service with KafkaSupport {
 
   override def serviceDef: ServiceDef = {
     namedAs("Defaultservice")
@@ -786,23 +824,21 @@ case class DefaultService(context: Context) extends Service with KafkaSupport {
 
 ```
 
-#### Details
+### Details
 
 1. This feature uses [Alpakka Kafka](https://doc.akka.io/docs/alpakka-kafka/current/). 
 2. Consumer settings are defined under configuration path `akka.kafka.consumer`. Server
 bootstrap under `akka.kafka.bootstrap` ("localhost:9092" by default). 
    
-#### Plugin settings
+### Plugin settings
 
 *KafkaSupportPlugin* auto-download and start Kafka before Modux server start. The version used it's defined 
 by setting `kafkaVersion := "2.6.0"`. You can disable auto-start feature setting 
 `autoLoadKafka := false`. 
 
-### GraphQL Support
+## GraphQL Support
 
-
-
-#### Quick example
+### Quick example
 ```scala
 
 import akka.NotUsed
@@ -817,7 +853,7 @@ final case class Result(message: String, code: Int)
 
 final case class User(name: String, year: Int)
 
-case class DefaultService(context: Context) extends Service with GraphQLSupport with LazyLogging {
+class DefaultService extends Service with GraphQLSupport with LazyLogging {
 
   case class Query(users: () => Source[User, NotUsed], addUser: User => Result)
 
@@ -829,15 +865,12 @@ case class DefaultService(context: Context) extends Service with GraphQLSupport 
     }
   )
 
+  val graphQLEntryPoint = createGraphQL(queryInstance.asQuery)
+
   override def serviceDef: ServiceDef = {
     namedAs("Defaultservice")
       .entry(
-        graphql(
-          "graphql",
-          queryInstance.asQuery, 
-          enableIntrospection = true,
-          enableSchemaValidation = true
-        )
+        call("graphql", graphQLEntryPoint)
       )
   }
 }
@@ -856,7 +889,7 @@ Content-Type: application/json
 }
 ```
 
-##### Result 
+### Result 
 ```json
 {
   "addUser": {
@@ -868,6 +901,56 @@ Content-Type: application/json
 For more details see [GraphQL implementation](https://github.com/joacovela16/graphql4s) or 
 [GraphQL Spec](https://graphql.org/).
 
-## Need help?
+## Web Security
+
+Modux uses [Pac4j](https://www.pac4j.org/) to support web security. To use it, you must extend `SecuritySupport`
+and provide a `SecurityComponents`. 
+
+Quick example:
+
+```scala
+class SecurityConf extends SecurityComponents{
+  val twitterClient = ???
+  val basicAuth = ???
+  val anonymous = new AnonymousClient
+  val clients = Clients("http://localhost:9000/home", twitterClient, basicAuth, anonymous)
+  def config: Config = Config(clients)
+}
+
+class DefaultService(securityComponents: SecurityComponents) extends Service with SecuritySupport{
+
+  private val graphQLEntryPoint = ???
+  private val callbackDef = SecureCallback("http://localhost:9000/home")
+  private val logoutDef = SecureLogout("http://localhost:9000/home")
+  
+  def index(): Call[Unit, Html] = Secure("AnonymousClient") {
+    extractContext { context =>
+      context.profiles.map(_.getUsername).mkString(", ")
+    }
+  }
+  
+  def graphQLSecure() = Secure(){
+    graphQLEntryPoint
+  }
+
+  override def serviceDef: ServiceDef = {
+    namedAs("Defaultservice")
+      .entry(
+        
+        // secure entry points
+        get("/callback", callbackDef),
+        post("/callback", callbackDef),
+        get("/logout", logoutDef),
+        post("/logout", logoutDef),
+
+        // some services
+        call("graphql", graphQLSecure _),
+        get("/home", index _)
+      )
+  }
+}
+```
+
+# Need help?
 
 Clone [Shop Example](https://github.com/modux4s/modux-example) to see more examples.

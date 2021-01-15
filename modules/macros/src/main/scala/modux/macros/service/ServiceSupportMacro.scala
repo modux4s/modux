@@ -1,6 +1,7 @@
 package modux.macros.service
 
 import akka.NotUsed
+import akka.http.scaladsl.server.Directives
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import modux.macros.MacroUtils
@@ -19,7 +20,6 @@ import scala.util.{Failure, Success, Try => stry}
 object ServiceSupportMacro {
 
   def staticServe(c: blackbox.Context)(url: c.Expr[String], dir: c.Expr[String]): c.Expr[RestEntry] = {
-
     val staticUrl: String = {
       val x: String = c.eval(url)
       val v1: String = if (x.endsWith("/")) {
@@ -50,9 +50,9 @@ object ServiceSupportMacro {
            |    override def route(extensions: Seq[RestEntryExtension]): Route = {
            |      (akkaGet & pathPrefix($rule)) {
            |        pathEndOrSingleSlash {
-           |          getFromDirectory(s"$finalStaticDir${slash}index.html")
+           |          getFromResource(s"$finalStaticDir${slash}index.html")
            |        } ~
-           |        getFromDirectory("$finalStaticDir")
+           |        getFromResourceDirectory("$finalStaticDir")
            |      }
            |    }
            |  }
@@ -273,7 +273,7 @@ object ServiceSupportMacro {
       if (isWebSocket) {
         s"""
            |extractRequestContext{ __request__ =>
-           |  handleWebSocketMessages(webSocketManager.listen(__request__))
+           |  handleWebSocketMessages(webSocketManager.listen(AkkaUtils.createInvoke(__request__)))
            |}
            |""".stripMargin
       } else if (isSourceRequest) {
@@ -488,7 +488,7 @@ object ServiceSupportMacro {
        |      import modux.model.dsl.RestEntryExtension
        |
        |      private val callback = {
-       |        $funcRef
+       |        ${c.universe.showCode(funcRef)}
        |      }
        |      $extraAttrs
        |

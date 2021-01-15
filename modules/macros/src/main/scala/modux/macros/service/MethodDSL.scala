@@ -14,5 +14,4 @@ trait MethodDSL {
   protected final def patch[IN, OUT](url: String, f: Any): RestEntry = macro ServiceMacroInvoke.patch
   protected final def named[IN, OUT](url: String, f: Any): RestEntry = macro ServiceMacroInvoke.named
   protected final def call[IN, OUT](url: String, f: Any): RestEntry = macro ServiceMacroInvoke.call
-
 }

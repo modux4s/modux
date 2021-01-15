@@ -145,10 +145,9 @@ object ModuxService extends AutoPlugin {
   val createServer: Def.Initialize[Task[ServerReloader]] = Def.task {
     val depsClasspath: Classpath = (dependencyClasspath in(Compile, run)).value
     val cd: File = (classDirectory in(Compile, run)).value
-    val rd: Seq[File] = Seq(
-      (resourceDirectory in(Compile, run)).value/*,
-      baseDirectory.value / CONFIG_DIR*/
-    )
+    val rd: Seq[File] = {
+      (resourceDirectories in(Compile, run)).value
+    }
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
     val (persisted, deps) = depsClasspath.map(_.data).partition(x => x.getAbsolutePath.contains("modux"))
@@ -247,7 +246,7 @@ object ModuxService extends AutoPlugin {
     moduxExportYaml := saveExport("yaml").value,
     moduxExportJson := saveExport("json").value,
     moduxOpenAPIVersion := 3,
-//    mappings in Universal ++= directory(CONFIG_DIR),
+    //    mappings in Universal ++= directory(CONFIG_DIR),
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
@@ -265,7 +264,7 @@ object ModuxService extends AutoPlugin {
     watchOnTermination in(Compile, run) := watchOnTerminationImpl,
     watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
     watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,
-//    scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
+    //    scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
     javaOptions in Universal := Def.task {
       Seq(
         s"-Dmodux.host=${moduxHost.value}",

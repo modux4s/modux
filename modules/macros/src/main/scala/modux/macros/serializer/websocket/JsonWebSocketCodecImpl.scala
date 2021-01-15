@@ -1,5 +1,6 @@
 package modux.macros.serializer.websocket
 
+import scala.concurrent.Future
 import scala.reflect.macros.blackbox
 
 object JsonWebSocketCodecImpl {
@@ -15,9 +16,9 @@ object JsonWebSocketCodecImpl {
          |  new modux.model.converter.Codec[$typeA, Message]{
          |    private val jsonMapper: ObjectMapper = modux.macros.serializer.codec.providers.impl.CodecUtils.createJsonMapper()
          |
-         |    def apply(data: $typeA): Future[Message] = Future{
+         |    def apply(data: $typeA): Future[Message] = Future.fromTry(scala.util.Try(
          |      TextMessage.Strict(jsonMapper.writeValueAsString(data))
-         |    }
+         |    ))
          |  }
          |}
          |""".stripMargin
@@ -35,10 +36,10 @@ object JsonWebSocketCodecImpl {
            |    def apply(data: Message): Future[$typeB] = data match {
            |      case message: TextMessage =>
            |        message match {
-           |          case TextMessage.Strict(text) => Future(text)
-           |          case _ => throw new RuntimeException("No supported BinaryMessage")
+           |          case TextMessage.Strict(text) => Future.successful(text)
+           |          case _ => Future.failed(new RuntimeException("No supported BinaryMessage"))
            |        }
-           |      case _: BinaryMessage => throw new RuntimeException("No supported BinaryMessage")
+           |      case _: BinaryMessage => Future.failed(new RuntimeException("No supported BinaryMessage"))
            |    }
            |  }
            |}
@@ -58,11 +59,11 @@ object JsonWebSocketCodecImpl {
            |      case message: TextMessage =>
            |        message match {
            |          case TextMessage.Strict(text) =>
-           |            Future(readValue[$typeB](text))
+           |            Future.fromTry(scala.util.Try(readValue[$typeB](text)))
            |          case _ =>
-           |            throw new RuntimeException("No supported BinaryMessage")
+           |            Future.failed(new RuntimeException("No supported BinaryMessage"))
            |        }
-           |      case _: BinaryMessage => throw new RuntimeException("No supported BinaryMessage")
+           |      case _: BinaryMessage => Future.failed(new RuntimeException("No supported BinaryMessage"))
            |    }
            |  }
            |}

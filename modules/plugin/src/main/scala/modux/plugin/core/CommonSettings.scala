@@ -35,10 +35,11 @@ object CommonSettings {
     scalaSource in Test := baseDirectory.value / "test",
     javaSource in Test := baseDirectory.value / "test",
 
-    resourceDirectory in Compile := (baseDirectory in Compile).value / "conf",
-    resourceDirectory in Test := (baseDirectory in Compile).value / "conf",
-    sourceDirectory in Assets := (baseDirectory in Compile).value / "assets",
-    resourceDirectory in Assets := (baseDirectory in Compile).value / "public",
+    resourceDirectory in Compile := baseDirectory.value / "conf",
+    resourceDirectory in Test := baseDirectory.value / "conf",
+
+    sourceDirectory in Assets := baseDirectory.value / "assets",
+    resourceDirectory in Assets := baseDirectory.value / "public",
 
     (managedClasspath in Compile) += (sourceDirectory in Assets).value,
 

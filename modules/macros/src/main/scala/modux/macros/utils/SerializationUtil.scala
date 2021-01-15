@@ -3,8 +3,8 @@ package modux.macros.utils
 import akka.NotUsed
 import akka.http.scaladsl.common.EntityStreamingSupport
 import akka.http.scaladsl.model.{ContentType, HttpRequest, RequestEntity}
-import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, FromRequestUnmarshaller, Unmarshaller}
 import akka.http.scaladsl.unmarshalling.Unmarshaller.UnsupportedContentTypeException
+import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, FromRequestUnmarshaller, Unmarshaller}
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import akka.util.ByteString
@@ -16,7 +16,7 @@ object SerializationUtil {
 
   private type RequestToSourceUnmarshaller[T] = FromRequestUnmarshaller[Source[T, NotUsed]]
 
-  private[modux] def moduxAsSource[T](implicit mf: Manifest[T], cr: CodecRegistry = SerializationDefaults.DefaultCodecRegistry): RequestToSourceUnmarshaller[T] =
+  final def moduxAsSource[T](implicit mf: Manifest[T], cr: CodecRegistry = SerializationDefaults.DefaultCodecRegistry): RequestToSourceUnmarshaller[T] =
     Unmarshaller.withMaterializer[HttpRequest, Source[T, NotUsed]] { implicit ec =>
       implicit mat =>
         req =>

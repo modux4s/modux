@@ -7,10 +7,10 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import jsoft.graphql.core.{EncoderTypeDerivation, GraphQL, StructTypeDerivation}
 import jsoft.graphql.model.{Binding, Interpreter}
-import modux.macros.service.ResponseDSL
-import modux.model.service.{Call, CallDirectives}
+import modux.model.directives.CallDirectives
+import modux.model.service.Call
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation with CallDirectives {
 
@@ -24,10 +24,10 @@ trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation wit
     )
   }
 
-  def graphql(binding: => Binding, enableSchemaValidation: Boolean = true, enableIntrospection: Boolean = true)(implicit ec: ExecutionContext): GraphQLInterpreter = {
+  def createGraphQL(binding: => Binding, enableSchemaValidation: Boolean = true, enableIntrospection: Boolean = true)(implicit ec: ExecutionContext): Call[Option[String], Source[ByteString, NotUsed]] = {
     val interpreter: Interpreter = GraphQL.interpreter(binding, enableSchemaValidation = enableSchemaValidation, enableIntrospection = enableIntrospection)
 
-    val impl: Call[Option[String], Source[ByteString, NotUsed]] = extractMethod { method =>
+    extractMethod { method =>
 
       val methodValue: String = method.value
 
@@ -38,14 +38,9 @@ trait GraphQLSupport extends EncoderTypeDerivation with StructTypeDerivation wit
           }
         }
       } else {
-        ResponseDSL.BadRequest
+        CallDirectives.BadRequest
       }
     }
-
-    new GraphQLInterpreter {
-      override def service: Call[Option[String], Source[ByteString, NotUsed]] = impl
-    }
-
   }
 
 }
