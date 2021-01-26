@@ -50,9 +50,13 @@ object ServiceSupportMacro {
            |    override def route(extensions: Seq[RestEntryExtension]): Route = {
            |      (akkaGet & pathPrefix($rule)) {
            |        pathEndOrSingleSlash {
-           |          getFromResource(s"$finalStaticDir${slash}index.html")
+           |          getFromResource(
+           |            s"$finalStaticDir${slash}index.html",
+           |            akka.http.scaladsl.server.directives.ContentTypeResolver.Default(s"$finalStaticDir${slash}index.html"),
+           |             context.applicationLoader
+           |          )
            |        } ~
-           |        getFromResourceDirectory("$finalStaticDir")
+           |        getFromResourceDirectory("$finalStaticDir", context.applicationLoader)
            |      }
            |    }
            |  }
@@ -525,13 +529,25 @@ object ServiceSupportMacro {
       s"""MParameter("$name", "query", true, ${schemaUtil.matOpt(schema)})"""
     }.mkString("Seq(", ",", ")")
 
-    val pathParamInf: String = parsedPath.pathParams.collect { case x: AsPathParam => x }.flatMap(x => argsMap.get(x.name)).map { x =>
-      val name: String = x.name.toString
-      val tpe: c.universe.Type = x.tpt.tpe
+    val pathParamInf: String = parsedPath
+      .pathParams
+      .collect {
+        case x: AsPathParam => x
+        case x: AsRegexPath => x
+      }
+      .flatMap(x => argsMap.get(x.name).map((x, _)))
+      .map { case (pattern, x) =>
 
-      val schema: Option[String] = schemaUtil.primitiveSchema(tpe)
-      s"""MParameter("$name", "path", true, ${schemaUtil.matOpt(schema)})"""
-    }.mkString("Seq(", ",", ")")
+        val name: String = x.name.toString
+        val tpe: c.universe.Type = x.tpt.tpe
+        val schema: Option[String] = schemaUtil.primitiveSchema(tpe)
+        val regex: String = pattern match {
+          case AsRegexPath(_, value) => s"Option(${value.qt})"
+          case _ => "None"
+        }
+
+        s"""MParameter("$name", "path", true, ${schemaUtil.matOpt(schema)}, $regex)"""
+      }.mkString("Seq(", ",", ")")
 
     val storeRef: mutable.Map[String, String] = mutable.Map.empty
 
@@ -559,6 +575,11 @@ object ServiceSupportMacro {
       }
     }
 
+    val finalMethod: String = method match {
+      case Some(value) => value.qt
+      case None => if (isEmptyRequest) "get" else "post"
+    }
+
     val joinedSchemas: String = schemaUtil.joiner(storeRef.toMap)
 
     s"""
@@ -572,7 +593,7 @@ object ServiceSupportMacro {
        |      queryParameter = $queryParamInf,
        |      schemas = $joinedSchemas,
        |      path = "${normalizePath(urlValue)}",
-       |      method = "$method",
+       |      method = $finalMethod,
        |      requestWith = $requestMat,
        |      responseWith = $responseMat
        |    )

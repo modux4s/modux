@@ -1,10 +1,10 @@
 package modux.exporting.swagger
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{BootstrapSetup, ActorSystem => Classic}
+import akka.actor.ActorSystem
 import com.github.andyglow.config._
+import com.softwaremill.macwire.Wired
 import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.scalalogging.LazyLogging
 import io.swagger.jaxrs.Reader
 import io.swagger.models._
 import io.swagger.models.parameters.{CookieParameter, HeaderParameter, Parameter}
@@ -12,41 +12,55 @@ import io.swagger.models.properties.StringProperty
 import io.swagger.models.utils.PropertyModelConverter
 import io.swagger.util.{Json, Yaml}
 import modux.core.api.ModuleX
-import modux.model.context.Context
+import modux.macros.di.MacwireSupport
+import modux.model.context.{Context, ContextInject}
 import modux.model.dsl._
-import modux.model.rest.RestProxy
+import modux.model.rest.{PathMetadata, RestProxy}
 import modux.model.schema.MSchema
 import modux.shared.BuildContext
 
 import java.util
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
-object Exporter {
+object Exporter extends LazyLogging {
 
   def processor(buildContext: BuildContext): String = {
 
     def genContext(buildContext: BuildContext): Context = {
       val appClassloader: ClassLoader = buildContext.appClassloader
       val localConfig: Config = ConfigFactory.load(appClassloader)
+      val sys: ActorSystem = ActorSystem(buildContext.get("appName"), Option(localConfig), Option(appClassloader), None)
 
       new Context {
-        private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
-        override val applicationName: String = buildContext.settings.get("appName")
-        override val actorSystem: ActorSystem[Nothing] = classic.toTyped
-        override val config: Config = localConfig
-        override val executionContext: ExecutionContext = ExecutionContext.Implicits.global
-        override val applicationLoader: ClassLoader = appClassloader
+        override def applicationLoader: ClassLoader = appClassloader
+
+        override def applicationName: String = buildContext.settings.get("appName")
+
+        override def classicActorSystem: ActorSystem = sys
+
+        override def config: Config = localConfig
+
+        override def executionContext: ExecutionContext = ExecutionContext.Implicits.global
       }
     }
 
-    def extractModules(buildContext: BuildContext, context: Context): Seq[ModuleX] = {
+    def extractModules(context: Context): Seq[ModuleX] = context.contextThread {
+
+      val wired: Wired = MacwireSupport.wiredInModule(context)
 
       context
         .config
         .get[List[String]]("modux.modules")
-        .map(x => buildContext.appClassloader.loadClass(x))
-        .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
+        .flatMap { packageStr =>
+          Try(wired.wireClassInstanceByName(packageStr).asInstanceOf[ModuleX]) match {
+            case Failure(exception) =>
+              logger.error(exception.getLocalizedMessage, exception)
+              None
+            case Success(value) => Option(value)
+          }
+        }
     }
 
     def processModule(moduleX: ModuleX, swagger: Swagger): Map[String, Path] = {
@@ -86,7 +100,7 @@ object Exporter {
             .groupBy(_._2.path)
             .map { case (path, xs) =>
               (
-                path,
+                PathMetadata.swaggerFormat(PathMetadata.normalizePath(path)),
                 xs.foldLeft(new Path) { case (acc, (entry, proxy)) =>
 
                   val operation: Operation = new Operation
@@ -193,7 +207,7 @@ object Exporter {
 
       createInfo(buildContext, swagger)
       processServers(buildContext, swagger)
-      extractModules(buildContext, context)
+      extractModules(context)
         .flatMap { mod => processModule(mod, swagger) }
         .foreach { case (k, path) => swagger.path(k, path) }
 
@@ -211,6 +225,7 @@ object Exporter {
     }
 
     val context: Context = genContext(buildContext)
+    ContextInject.setInstance(context)
     val result: String = main(buildContext, context)
     context.actorSystem.terminate()
     result

@@ -1,27 +1,25 @@
 package modux.server
 
-import java.io.File
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
 import modux.server.model.Types.ExporterResolver
 import modux.server.service.ModuxServer
-import modux.shared.{BuildContext}
+import modux.shared.BuildContext
 import org.slf4j.LoggerFactory
 import org.slf4j.helpers.SubstituteLoggerFactory
+
+import java.io.File
+import java.util.concurrent.atomic.AtomicReference
+import scala.language.reflectiveCalls
 
 private[modux] object DevServer {
 
   private val serverRef: AtomicReference[ModuxServer] = new AtomicReference[ModuxServer]()
   private var lastTimeLogFileModified: Long = 0
-  private var firstTime: Boolean = true
 
   def reload(buildContext: BuildContext): Unit = {
-
-    if (!resetLogger(buildContext) || firstTime) {
-      resetServer(buildContext)
-      firstTime = false
-    }
+    resetLogger(buildContext)
+    resetServer(buildContext)
   }
 
   def stop(): Unit = {

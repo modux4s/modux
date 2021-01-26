@@ -1,25 +1,24 @@
 package modux.plugin.service
 
 import com.typesafe.sbt.SbtNativePackager.Universal
-
-import java.nio.file.{Path => JPath}
+import com.typesafe.sbt.packager.Keys.scriptClasspath
 import com.typesafe.sbt.packager.MappingsHelper.directory
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
+import com.typesafe.sbt.web.Import.Assets
+import com.typesafe.sbt.web.SbtWeb
 import modux.plug.HookPlugin
-import modux.plugin.core.{CommonSettings, InProgress, ModuxState, ModuxUtils, ServerReloader}
-import modux.plugin.web.ModuxWeb
+import modux.plugin.core._
 import modux.shared.PrintUtils
 import sbt.Keys._
 import sbt.nio.Keys._
 import sbt.nio.Watch
-import sbt.util.CacheStore
-import sbt.{AutoPlugin, Def, InputTask, Plugins, Project, ProjectRef, State, Task, file}
-
-import java.util
-import sbt._
 import sbt.plugins.JvmPlugin
+import sbt.util.CacheStore
 import sbt.util.StampedFormat._
+import sbt.{AutoPlugin, Def, Plugins, Project, ProjectRef, State, Task, file, _}
 
+import java.nio.file.{Path => JPath}
+import java.util
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -27,7 +26,7 @@ import scala.concurrent.Future
 object ModuxService extends AutoPlugin {
   private final val store: CacheStore = sbt.util.CacheStore(file("./target/streams/modux"))
   private final val delayState: AtomicBoolean = new AtomicBoolean(false)
-  private final val compilingState: AtomicBoolean = new AtomicBoolean(true)
+  private final val inCompilingStage: AtomicBoolean = new AtomicBoolean(false)
 
   private def lastIsCompile(): Boolean = {
     store.read[Option[String]](None).contains("compile")
@@ -37,13 +36,12 @@ object ModuxService extends AutoPlugin {
     store.write(s)
   }
 
-  override def requires: Plugins = JvmPlugin && JavaAppPackaging && HookPlugin
+  override def requires: Plugins = JvmPlugin && JavaAppPackaging && HookPlugin && SbtWeb
 
   object autoImport extends ModuxServiceSettings {
   }
 
   import autoImport._
-  import com.typesafe.sbt.packager.archetypes.JavaAppPackaging.autoImport._
   import modux.plug.HookPlugin.autoImport._
 
   val watchOnFileInputEventImpl: (Int, Watch.Event) => Watch.ContinueWatch = (_: Int, y: Watch.Event) => {
@@ -52,14 +50,14 @@ object ModuxService extends AutoPlugin {
     if (path.endsWith("~")) {
       Watch.Ignore
     } else {
-      if (compilingState.get()) {
-        if (delayState.get()) {
+      if (inCompilingStage.get()) {
+        Watch.Ignore
+      } else {
+        if (delayState.getAndSet(true)) {
           Watch.Ignore
         } else {
           Watch.Trigger
         }
-      } else {
-        Watch.Ignore
       }
     }
   }
@@ -87,37 +85,47 @@ object ModuxService extends AutoPlugin {
 
   val watchTriggeredMessageImpl: (Int, JPath, Seq[String]) => Option[String] = (_: Int, _: JPath, _: Seq[String]) => None
 
-  val runningFlag = Def.task {
+  val runningFlag: Def.Initialize[Task[Unit]] = Def.task {
     sys.props.put(MODUX_MODE, MODE_COMPILE)
   }
 
-  val taskCompile = Def.taskDyn {
-    if (lastIsCompile()) {
-      if (compilingState.get()) {
-        Def.task[Unit] {
-          compilingState.set(false)
-          val _ = (compile in Compile).value
-          compilingState.set(true)
-          Future {
-            delayState.set(true)
-            Thread.sleep(2000)
-            delayState.set(false)
-          }
+  val taskCompile: Def.Initialize[Task[Unit]] = Def.sequential(
+    runningFlag,
+    Def.taskDyn {
+      if (lastIsCompile()) {
+        if (inCompilingStage.get()) {
+          Def.task[Unit] {}
+        } else {
+          inCompilingStage.set(true)
+          Def.sequential(
+            packageBin in Assets,
+            compile in Compile,
+            Def.task[Unit] {
+              delayState.set(true)
+              Future {
+                Thread.sleep(1000)
+                delayState.set(false)
+                inCompilingStage.set(false)
+              }
+            }
+          )
         }
       } else {
-        Def.task[Unit] {}
-      }
-    } else {
-      Def.task {
-        writeMode("compile")
-        streams.value.log.info("Cleaning...")
-        val _ = (compile in Compile).dependsOn(clean).value
+        Def.sequential(
+          streams.map(_.log.info("Cleaning...")),
+          clean,
+          Def.task(writeMode("compile")),
+          packageBin in Assets,
+          compile in Compile
+        ).map(_ => {})
       }
     }
-  }.dependsOn(runningFlag)
+  )
 
-  val runnerImpl: Def.Initialize[InputTask[Unit]] = Def.inputTaskDyn {
+  val runnerImpl = Def.inputTaskDyn {
+
     val moduxCurrentState: ModuxState = moduxState.value
+
     if (moduxCurrentState.isContinuous) {
       Def.task[Unit] {
         moduxCurrentState.serverReloader.reload()
@@ -145,9 +153,8 @@ object ModuxService extends AutoPlugin {
   val createServer: Def.Initialize[Task[ServerReloader]] = Def.task {
     val depsClasspath: Classpath = (dependencyClasspath in(Compile, run)).value
     val cd: File = (classDirectory in(Compile, run)).value
-    val rd: Seq[File] = {
-      (resourceDirectories in(Compile, run)).value
-    }
+    val rd: Seq[File] = (resourceDirectories in(Compile, run)).value
+    val assetsDir = Seq((packageBin in Assets).value)
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
     val (persisted, deps) = depsClasspath.map(_.data).partition(x => x.getAbsolutePath.contains("modux"))
@@ -173,6 +180,7 @@ object ModuxService extends AutoPlugin {
       settings,
       cd,
       rd,
+      assetsDir,
       buildLoader,
       deps,
       persisted.filterNot(x => x.absolutePath.contains("dev-server")),
@@ -188,21 +196,25 @@ object ModuxService extends AutoPlugin {
       Def.task(gs)
     } else {
 
-      Def.task {
-        PrintUtils.cyan("""___________________________________________________""")
-        PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
-        PrintUtils.cyan("""      |  |  | |     | |     \ |     |  \___/       """)
-        PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
-        PrintUtils.cyan("""---------------------------------------------------""")
-        ModuxState.update(InProgress(state.value, createServer.value))
-      }.dependsOn(startHookImpl)
+      Def.sequential(
+        startHookImpl,
+        Def.task {
+          PrintUtils.cyan("""___________________________________________________""")
+          PrintUtils.cyan("""      _______  _____  ______  _     _ _     _      """)
+          PrintUtils.cyan("""      |  |  | |     | |     \ |     |  \___/       """)
+          PrintUtils.cyan("""      |  |  | |_____| |_____/ |_____| _/   \_      """)
+          PrintUtils.cyan("""---------------------------------------------------""")
+          ModuxState.update(InProgress(state.value, createServer.value))
+        }
+      )
+
     }
   }
 
-  private val exportTask: Def.Initialize[Task[ServerReloader]] = Def.task {
-    val _ = (compile in Compile).value
-    createServer.value
-  }
+  private val exportTask: Def.Initialize[Task[ServerReloader]] = Def.sequential(
+    compile in Compile,
+    createServer
+  )
 
   private val exportFlags = Def.task {
     sys.props.put(MODUX_MODE, MODE_EXPORT)
@@ -211,29 +223,33 @@ object ModuxService extends AutoPlugin {
   private def saveExport(mode: String): Def.Initialize[Task[Unit]] = {
     val cleanReq = Def.taskDyn {
       if (lastIsCompile()) {
-        Def.task[Unit] {
-          streams.value.log.info("Cleaning...")
-          clean.value
-        }
+        Def.sequential(
+          exportFlags,
+          streams.map(_.log.info("Cleaning...")),
+          clean
+        )
       } else {
-        Def.task[Unit] {
-          streams.value.log.info("Not cleaning required...")
-        }
+        Def.sequential(
+          exportFlags,
+          streams.map(_.log.info("Not cleaning required..."))
+        )
       }
-    }.dependsOn(exportFlags)
+    }
 
-    Def.task {
-      writeMode("export")
-      val data: String = exportTask.value.exporter(mode)
-      val file: File = target.value / "api" / s"${name.value}.$mode"
-      IO.write(file, data)
-    }.dependsOn(cleanReq)
+    Def.sequential(
+      cleanReq,
+      Def.task {
+        writeMode("export")
+        val data: String = exportTask.value.exporter(mode)
+        val file: File = target.value / "api" / s"${name.value}.$mode"
+        IO.write(file, data)
+      }
+    )
   }
 
   override def globalSettings: Seq[Def.Setting[_]] = Seq(
     useSuperShell := false,
-    resolvers += Resolver.bintrayRepo("jsoft", "maven"),
-
+    resolvers += Resolver.bintrayRepo("jsoft", "maven")
   )
 
   override def projectSettings: Seq[Setting[_]] = Seq(
@@ -246,7 +262,7 @@ object ModuxService extends AutoPlugin {
     moduxExportYaml := saveExport("yaml").value,
     moduxExportJson := saveExport("json").value,
     moduxOpenAPIVersion := 3,
-    //    mappings in Universal ++= directory(CONFIG_DIR),
+    mappings in Universal ++= directory("conf"),
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
@@ -260,11 +276,11 @@ object ModuxService extends AutoPlugin {
     run in Compile := runnerImpl.evaluated,
     watchStartMessage in(Compile, run) := watchStartMessageImpl.value,
     watchPersistFileStamps in(Compile, run) := true,
-    watchTriggers in(Compile, run) ++= Seq((sourceDirectory in Compile).value.toGlob / **),
+    watchTriggers in(Compile, run) ++= Seq((sourceDirectory in Compile).value.toGlob / **, (resourceDirectory in Compile).value.toGlob / **),
     watchOnTermination in(Compile, run) := watchOnTerminationImpl,
     watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
     watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,
-    //    scriptClasspath := Seq("*", s"../$CONFIG_DIR"),
+    scriptClasspath := Seq("*", s"../conf"),
     javaOptions in Universal := Def.task {
       Seq(
         s"-Dmodux.host=${moduxHost.value}",

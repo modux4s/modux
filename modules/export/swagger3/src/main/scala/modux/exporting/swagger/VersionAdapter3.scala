@@ -12,7 +12,15 @@ object VersionAdapter3 {
         new PathParameter()
           .name(x.name)
           .required(x.required)
-          .schema(x.schema.map(VersionAdapter3(_)).orNull)
+          .schema {
+            x.schema
+              .map { y =>
+                val schema: Schema[_] = VersionAdapter3(y)
+                schema.setPattern(x.pattern.orNull)
+                schema
+              }.orNull
+          }
+
       case "query" =>
         new QueryParameter()
           .name(x.name)

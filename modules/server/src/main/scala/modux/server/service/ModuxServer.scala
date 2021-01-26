@@ -1,7 +1,5 @@
 package modux.server.service
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem => ClassicAS}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.concat
@@ -34,14 +32,14 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
 
   private val configStr: String = ConfigBuilder.build(appName)
   private val localConfig: Config = ConfigFactory.defaultApplication(appClassloader).withFallback(ConfigFactory.parseString(configStr))
+
   private implicit val sys: ClassicAS = ClassicAS(appName, Option(localConfig), Option(appClassloader), None)
-  private val sysTyped: ActorSystem[Nothing] = sys.toTyped
-  private implicit val ec: ExecutionContextExecutor = sysTyped.executionContext
+  private implicit val ec: ExecutionContextExecutor = sys.dispatcher
 
   private val context: Context = new Context {
     override val applicationLoader: ClassLoader = appClassloader
     override val applicationName: String = appName
-    override val actorSystem: ActorSystem[Nothing] = sysTyped
+    override val classicActorSystem: ClassicAS = sys
     override val config: Config = localConfig
     override val executionContext: ExecutionContext = ec
   }
@@ -51,7 +49,10 @@ case class ModuxServer(appName: String, host: String, port: Int, appClassloader:
   val capture: Capture = context.contextThread(captureCall(context, localConfig))
 
   Http().newServerAt(host, port).bindFlow(capture.routes).onComplete {
-    case Failure(exception) => logger.error(exception.getLocalizedMessage, exception)
+    case Failure(exception) =>
+      logger.error(exception.getLocalizedMessage, exception)
+      exception.printStackTrace()
+      stop()
     case Success(value) => binding.set(value)
   }
 

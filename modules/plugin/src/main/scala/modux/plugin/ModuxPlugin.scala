@@ -8,7 +8,7 @@ import sbt.{Def, _}
 
 case object ModuxPlugin extends AutoPlugin {
 
-  override def requires: Plugins = JvmPlugin && ModuxService && ModuxWeb
+  override def requires: Plugins = JvmPlugin && ModuxService
 
   override def projectSettings: Seq[Def.Setting[_]] = CommonSettings.projectLayout ++ CommonSettings.packageSettings
 }

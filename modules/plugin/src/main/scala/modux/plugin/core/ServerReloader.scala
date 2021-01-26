@@ -1,19 +1,15 @@
 package modux.plugin.core
 
-import java.io.File
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
-
 import modux.plugin.classutils.DelegatingClassLoader
 import modux.plugin.core.Types.Server
 import modux.shared.{BuildContext, ServerDecl, Threads}
-import org.apache.xbean.classloader.NamedClassLoader
+import org.apache.xbean.classloader.{JarFileClassLoader, NamedClassLoader}
 import sbt._
 
+import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.language.reflectiveCalls
-import scala.reflect.internal.util.ScalaClassLoader.URLClassLoader
 import scala.util.Try
 
 private[modux] case class ServerReloader private(
@@ -21,6 +17,7 @@ private[modux] case class ServerReloader private(
                                                   settings: java.util.Map[String, String],
                                                   classpathDir: File,
                                                   resourceDir: Seq[File],
+                                                  assetsDir: Seq[File],
                                                   buildClassloader: ClassLoader,
                                                   dependencies: Seq[File],
                                                   moduxModules: Seq[File],
@@ -28,14 +25,18 @@ private[modux] case class ServerReloader private(
                                                 ) {
 
   private val appClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
+  private val assetsLoaderRef = new AtomicReference[JarFileClassLoader]()
 
-  private lazy val baseClassloader: NamedClassLoader = {
+  private val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
 
-    val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
+  private val baseClassloader: NamedClassLoader = {
+
+    val depsLoader: NamedClassLoader = new NamedClassLoader("deps-loader", Path.toURLs(dependencies), delegator)
+
     new NamedClassLoader(
       "mods-loader",
-      Path.toURLs(dependencies ++ moduxModules ++ resourceDir),
-      delegator
+      Path.toURLs(moduxModules ++ resourceDir),
+      depsLoader
     )
   }
 
@@ -49,10 +50,13 @@ private[modux] case class ServerReloader private(
 
   def createAppLoader(): BuildContext = {
 
+    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
+    assetsLoaderRef.set(assetsLoader)
+
     val appLoader: NamedClassLoader = new NamedClassLoader(
       s"current-application-loader-${System.currentTimeMillis()}",
       Path.toURLs(Seq(classpathDir)),
-      baseClassloader
+      assetsLoader
     )
 
     BuildContext(settings, appLoader, servers.asJava)
@@ -75,9 +79,13 @@ private[modux] case class ServerReloader private(
   }
 
   private def destroyAppLoader(): Unit = {
-    Option(appClassLoaderRef.get()).foreach { x =>
-      Try(x.close())
-      Try(x.destroy())
-    }
+
+    Seq(Option(assetsLoaderRef.get()), Option(appClassLoaderRef.get()))
+      .flatten
+      .foreach { x =>
+        Try(x.close())
+        Try(x.destroy())
+      }
+
   }
 }

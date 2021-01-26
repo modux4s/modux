@@ -10,15 +10,19 @@ import scala.concurrent.ExecutionContext
 
 trait Context {
 
-  lazy val classicActorSystem: ClassicActorSystem = actorSystem.toClassic
   lazy val self: Context = this
-
-  val applicationName: String
-  val config: Config
-  val actorSystem: ActorSystem[Nothing]
-  val executionContext: ExecutionContext
-  val applicationLoader: ClassLoader
   lazy val materializer: Materializer = Materializer(actorSystem)
+  lazy val actorSystem: ActorSystem[Nothing] = classicActorSystem.toTyped
+
+  def applicationName: String
+
+  def config: Config
+
+  def classicActorSystem: ClassicActorSystem
+
+  def executionContext: ExecutionContext
+
+  def applicationLoader: ClassLoader
 
   def contextThread[T](f: => T): T = {
     val thread: Thread = Thread.currentThread

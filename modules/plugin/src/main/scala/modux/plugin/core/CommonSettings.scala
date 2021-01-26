@@ -49,10 +49,12 @@ object CommonSettings {
 
   val packageSettings: Seq[Setting[_]] = Seq(
     mappings in Universal ++= directory((resourceDirectory in Compile).value),
-    scriptClasspath := Seq("*", "../conf"),
+    scriptClasspath := {
+      Seq("*", "../conf")
+    },
 
     mappings in(Compile, packageBin) ~= { in =>
-      in.filter { case (path, _) =>
+      in.filter { case (path, x) =>
         if (path.isDirectory) {
           true
         } else {

@@ -2,15 +2,15 @@ enablePlugins(UpdatesPlugin)
 
 import sbt._
 
-ThisBuild / version := "1.2.2-SNAPSHOT"
+ThisBuild / version := "1.2.2"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
+ThisBuild / organizationName := "jsoft"
 ThisBuild / scalacOptions := Seq("-language:implicitConversions")
 ThisBuild / resolvers += "io.confluent" at "https://packages.confluent.io/maven/"
 ThisBuild / resolvers += Resolver.bintrayRepo("jsoft", "maven")
 ThisBuild / resolvers += Resolver.bintrayRepo("sbt", "sbt-plugin-releases")
 ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
-
 
 onChangedBuildSource in Global := ReloadOnSourceChanges
 
@@ -120,7 +120,7 @@ lazy val devShared = (project in file("./modules/shared"))
 
 lazy val plug = (project in file("./modules/plug"))
   .settings(
-//    crossScalaVersions := Nil,
+    //    crossScalaVersions := Nil,
     sbtPlugin := true,
     name := "modux-plug",
     enablingPublishingSettings
@@ -179,7 +179,6 @@ lazy val plugin = (project in file("./modules/plugin"))
   .aggregate(server, devShared, swaggerExportV3, swaggerExportV2, kafkaCore, plug)
   .dependsOn(devShared, plug)
   .settings(
-//    crossScalaVersions := Nil,
     sbtPlugin := true,
     name := "modux-plugin",
     enablingPublishingSettings,
@@ -196,6 +195,6 @@ lazy val root = (project in file("."))
   .aggregate(plugin)
   .settings(
     name := "modux4s",
-//    crossScalaVersions := Nil,
+    publishArtifact := false,
     publish / skip := true
   )

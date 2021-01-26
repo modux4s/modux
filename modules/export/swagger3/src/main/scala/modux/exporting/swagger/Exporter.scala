@@ -1,59 +1,70 @@
 package modux.exporting.swagger
 
-import akka.actor.typed.ActorSystem
-import com.typesafe.config.{Config, ConfigFactory}
-import modux.model.context.Context
-import modux.shared.BuildContext
-import akka.actor.{BootstrapSetup, ActorSystem => Classic}
-import akka.actor.typed.scaladsl.adapter._
+import akka.actor.ActorSystem
 import com.github.andyglow.config._
+import com.softwaremill.macwire.Wired
+import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.scalalogging.LazyLogging
 import io.swagger.v3.core.util.{Json, Yaml}
 import io.swagger.v3.jaxrs2.Reader
 import io.swagger.v3.oas.integration.SwaggerConfiguration
+import io.swagger.v3.oas.models._
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.info.{Info, License}
 import io.swagger.v3.oas.models.media.{Content, MediaType, Schema, StringSchema}
 import io.swagger.v3.oas.models.parameters.{CookieParameter, HeaderParameter, Parameter, RequestBody}
 import io.swagger.v3.oas.models.responses.{ApiResponse, ApiResponses}
 import io.swagger.v3.oas.models.servers.{Server, ServerVariable, ServerVariables}
-import io.swagger.v3.oas.models.{Components, OpenAPI, Operation, PathItem, Paths}
 import modux.core.api.ModuleX
-import modux.model.dsl.{CookieKind, HeaderKind, NameSpacedEntry, ParamDescriptor, RestEntry}
+import modux.macros.di.MacwireSupport
+import modux.model.context.{Context, ContextInject}
+import modux.model.dsl._
 import modux.model.exporter.{MediaTypeDescriptor, SchemaDescriptor}
-import modux.model.rest.RestProxy
+import modux.model.rest.{PathMetadata, RestProxy}
 import modux.model.schema.MSchema
+import modux.shared.BuildContext
 
 import java.util
-import scala.concurrent.ExecutionContext
-//import scala.jdk.CollectionConverters._
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success, Try}
 
-object Exporter {
+object Exporter extends LazyLogging {
 
   def processor(buildContext: BuildContext): String = {
 
     def genContext(buildContext: BuildContext): Context = {
       val appClassloader: ClassLoader = buildContext.appClassloader
       val localConfig: Config = ConfigFactory.load(appClassloader)
+      val sys: ActorSystem = ActorSystem(buildContext.get("appName"), Option(localConfig), Option(appClassloader), None)
 
       new Context {
+        override def applicationLoader: ClassLoader = appClassloader
 
-        private val classic: Classic = Classic(buildContext.get("appName"), BootstrapSetup(Option(appClassloader), Option(localConfig), None))
-        override val applicationLoader: ClassLoader = appClassloader
-        override val applicationName: String = buildContext.settings.get("appName")
-        override val actorSystem: ActorSystem[Nothing] = classic.toTyped
-        override val config: Config = localConfig
-        override val executionContext: ExecutionContext = ExecutionContext.Implicits.global
+        override def applicationName: String = buildContext.settings.get("appName")
+
+        override def classicActorSystem: ActorSystem = sys
+
+        override def config: Config = localConfig
+
+        override def executionContext: ExecutionContext = ExecutionContext.Implicits.global
       }
     }
 
-    def extractModules(buildContext: BuildContext, context: Context): Seq[ModuleX] = {
+    def extractModules(context: Context): Seq[ModuleX] = context.contextThread {
+      val wired: Wired = MacwireSupport.wiredInModule(context)
 
       context
         .config
         .get[List[String]]("modux.modules")
-        .map(x => buildContext.appClassloader.loadClass(x))
-        .map(c => c.getConstructor(classOf[Context]).newInstance(context).asInstanceOf[ModuleX])
+        .flatMap { packageStr =>
+          Try(wired.wireClassInstanceByName(packageStr).asInstanceOf[ModuleX]) match {
+            case Failure(exception) =>
+              logger.error(exception.getLocalizedMessage, exception)
+              None
+            case Success(value) => Option(value)
+          }
+        }
     }
 
     def processModule(moduleX: ModuleX, paths: Paths, components: Components): Paths = {
@@ -95,8 +106,9 @@ object Exporter {
             .filterNot { case (_, x) => x.ignore }
             .groupBy(_._2.path)
             .map { case (path, xs) =>
+
               (
-                path,
+                PathMetadata.swaggerFormat(PathMetadata.normalizePath(path)),
                 xs.foldLeft(new PathItem) { case (acc, (entry, proxy)) =>
 
                   val operation: Operation = new Operation
@@ -252,11 +264,10 @@ object Exporter {
 
     def main(buildContext: BuildContext, context: Context): String = {
 
-
       val readerConfig: SwaggerConfiguration = new SwaggerConfiguration
       val openAPI: OpenAPI = new OpenAPI
       val components: Components = new Components
-      val paths: Paths = extractModules(buildContext, context).foldLeft(new Paths) { case (acc, mod) => processModule(mod, acc, components) }
+      val paths: Paths = extractModules(context).foldLeft(new Paths) { case (acc, mod) => processModule(mod, acc, components) }
 
       val java1: util.List[Server] = processServers(buildContext).asJava
       openAPI
@@ -279,6 +290,8 @@ object Exporter {
     }
 
     val context: Context = genContext(buildContext)
+    ContextInject.setInstance(context)
+
     val result: String = main(buildContext, context)
     context.actorSystem.terminate()
     result
