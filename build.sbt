@@ -17,18 +17,20 @@ onChangedBuildSource in Global := ReloadOnSourceChanges
 bintrayReleaseOnPublish in ThisBuild := false
 
 lazy val disablingPublishingSettings =
-  Seq(skip in publish := true, publishArtifact := false)
+  Seq(
+    skip in publish := true,
+    publishArtifact := false,
+    publishArtifact in Test := false
+  )
 
 lazy val enablingPublishingSettings = Seq(
   publishArtifact := true,
   publishMavenStyle := true,
-  // http://www.scala-sbt.org/0.12.2/docs/Detailed-Topics/Artifacts.html
   publishArtifact in Test := false,
-  // Bintray
   bintrayPackageLabels := Seq("scala", "sbt"),
   bintrayRepository := "maven",
   bintrayVcsUrl := Option("https://github.com/joacovela16/modux"),
-  bintrayOrganization := Option("jsoft"),
+  bintrayOrganization := Option("jsoft")
 )
 
 
@@ -191,10 +193,10 @@ lazy val plugin = (project in file("./modules/plugin"))
     addSbtPlugin(Deps.sbtWeb),
 
   )
+
 lazy val root = (project in file("."))
   .aggregate(plugin)
   .settings(
     name := "modux4s",
-    publishArtifact := false,
-    publish / skip := true
+    disablingPublishingSettings
   )

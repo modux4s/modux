@@ -60,7 +60,7 @@ root
     /views
         home.html.scala 
         userDetail.html.scala 
-  /public
+  /assets
     style.css
     utils.js
     index.html
