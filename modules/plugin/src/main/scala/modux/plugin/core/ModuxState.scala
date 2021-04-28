@@ -27,7 +27,7 @@ case class InProgress(state: State, serverReloader: ServerReloader) extends Modu
 //    state.get(Watched.ContinuousWatchService).isDefined || state.get(Watched.ContinuousEventMonitor).isDefined
 //    println(state.interactive)
 //    state.definedCommands.exists(_.nameOption.contains("~"))
-    true
+    state.attributes.keys.exists(_.label == "dynamicInputs")
   }
 
   override def initialized: Boolean = true

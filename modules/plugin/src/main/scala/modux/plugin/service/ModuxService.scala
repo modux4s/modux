@@ -15,7 +15,7 @@ import sbt.nio.Watch
 import sbt.plugins.JvmPlugin
 import sbt.util.CacheStore
 import sbt.util.StampedFormat._
-import sbt.{AutoPlugin, Def, Plugins, Project, ProjectRef, State, Task, file, _}
+import sbt.{AutoPlugin, Command, Def, Plugins, Project, ProjectRef, State, Task, file, _}
 
 import java.nio.file.{Path => JPath}
 import java.util
@@ -62,13 +62,13 @@ object ModuxService extends AutoPlugin {
     }
   }
 
-  val watchStartMessageImpl = Def.setting {
-    (_: Int, _: ProjectRef, _: Seq[String]) => {
-      Option(s"Server online at http://${moduxHost.value}:${moduxPort.value}/")
-    }
+  private val watchStartMessageImpl = Def.setting {
+    (_: Int, _: ProjectRef, _: Seq[String]) =>
+      PrintUtils.success(s"Server online at http://${moduxHost.value}:${moduxPort.value}/")
+      None
   }
 
-  val watchOnTerminationImpl: (Watch.Action, String, Int, State) => State = (_: Watch.Action, _: String, _: Int, state: State) => {
+  private val watchOnTerminationImpl: (Watch.Action, String, Int, State) => State = (_: Watch.Action, _: String, _: Int, state: State) => {
 
     val value: ModuxState = ModuxState.get
     if (value.initialized) {
@@ -135,7 +135,7 @@ object ModuxService extends AutoPlugin {
         val streamValue: TaskStreams = streams.value
         moduxCurrentState.serverReloader.reload()
         (Compile / run / watchStartMessage).value(0, thisProjectRef.value, Nil).foreach(x => streamValue.log.info(x))
-        ModuxUtils.waitForEnter(pollInterval.value.toMillis)
+        ModuxUtils.waitForEnter()
         (Compile / run / watchOnTermination).value(Watch.Ignore, "", 0, state.value)
       }
     }
@@ -220,6 +220,21 @@ object ModuxService extends AutoPlugin {
     sys.props.put(MODUX_MODE, MODE_EXPORT)
   }
 
+  private val stopModuxServerCommand = Command.command("stopModuxServer") { state =>
+
+    val value: ModuxState = ModuxState.get
+    if (value.initialized) {
+      value.serverReloader.shutdown()
+      ModuxState.clean()
+    }
+
+    val e = Project.extract(state)
+    val (newState, _) = e.runTask(moduxStopHook, state)
+
+    state.log.success("Server down")
+    newState.setInteractive(false)
+  }
+
   private def saveExport(mode: String): Def.Initialize[Task[Unit]] = {
     val cleanReq = Def.taskDyn {
       if (lastIsCompile()) {
@@ -263,7 +278,8 @@ object ModuxService extends AutoPlugin {
     moduxExportJson := saveExport("json").value,
     moduxOpenAPIVersion := 3,
     Universal / mappings ++= directory("conf"),
-    resolvers += Resolver.mavenLocal,
+    commands ++= Seq(stopModuxServerCommand),
+
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
         Seq(CommonSettings.moduxServer, CommonSettings.moduxOpenAPIV2)
@@ -271,11 +287,15 @@ object ModuxService extends AutoPlugin {
         Seq(CommonSettings.moduxServer, CommonSettings.moduxOpenAPIV3)
       }
     }.value,
+
+    Compile / run / watchLogLevel := sbt.util.Level.Error,
+    Compile / run / watchInputOptions := Seq(
+      Watch.InputOption("<enter>", "Stop modux server", Watch.Run("stopModuxServer"), '\n', '\r', 4.toChar)
+    ),
     Compile / mainClass := Option("modux.server.ProdServer"),
     Compile / run / mainClass := Option("modux.server.DevServer"),
     Compile / run := runnerImpl.evaluated,
     Compile / run / watchStartMessage := watchStartMessageImpl.value,
-    Compile / run / watchPersistFileStamps := true,
     Compile / run / watchTriggers ++= Seq((Compile / sourceDirectory).value.toGlob / **, (Compile / resourceDirectory).value.toGlob / **),
     Compile / run / watchOnTermination := watchOnTerminationImpl,
     Compile / run / watchTriggeredMessage := watchTriggeredMessageImpl,

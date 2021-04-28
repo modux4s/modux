@@ -1,15 +1,11 @@
 package modux.plugin.core
 
-import scala.annotation.tailrec
+import scala.io.StdIn
 
 private[modux] object ModuxUtils {
 
-  @tailrec
-  def waitForEnter(waitTime: Long): Unit = {
-    if (System.in.available() == 0 || System.in.read().toChar != '\n') {
-      Thread.sleep(waitTime)
-      waitForEnter(waitTime)
-    }
+  def waitForEnter(): Unit = {
+    StdIn.readLine()
   }
 
 }

@@ -12,27 +12,26 @@ ThisBuild / resolvers += Resolver.bintrayRepo("jsoft", "maven")
 ThisBuild / resolvers += Resolver.bintrayRepo("sbt", "sbt-plugin-releases")
 ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
-onChangedBuildSource in Global := ReloadOnSourceChanges
-
-bintrayReleaseOnPublish in ThisBuild := false
+Global / onChangedBuildSource := ReloadOnSourceChanges
+resolvers += Resolver.mavenLocal
+ThisBuild / bintrayReleaseOnPublish := false
 
 lazy val disablingPublishingSettings =
   Seq(
-    skip in publish := true,
+    publish / skip := true,
     publishArtifact := false,
-    publishArtifact in Test := false
+    Test / publishArtifact := false
   )
 
 lazy val enablingPublishingSettings = Seq(
   publishArtifact := true,
   publishMavenStyle := true,
-  publishArtifact in Test := false,
+  Test / publishArtifact := false,
   bintrayPackageLabels := Seq("scala", "sbt"),
   bintrayRepository := "maven",
   bintrayVcsUrl := Option("https://github.com/joacovela16/modux"),
   bintrayOrganization := Option("jsoft")
 )
-
 
 lazy val akkaDeps = Seq(
   libraryDependencies ++= Seq(
@@ -78,7 +77,6 @@ lazy val model = (project in file("./modules/model"))
     name := "modux-model",
     enablingPublishingSettings
   )
-
 
 lazy val swaggerExportV3 = (project in file("./modules/export/swagger3"))
   .aggregate(devShared, core)
@@ -174,7 +172,6 @@ lazy val server = (project in file("./modules/server"))
     crossScalaVersions := Deps.scalaVersions,
     enablingPublishingSettings,
   )
-
 
 lazy val plugin = (project in file("./modules/plugin"))
 
