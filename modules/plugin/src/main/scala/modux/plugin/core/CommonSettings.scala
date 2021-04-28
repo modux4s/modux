@@ -24,37 +24,37 @@ object CommonSettings {
   val moduxKafka: ModuleID = "jsoft.modux" %% "modux-kafka-core" % moduxVersion
 
   val projectLayout: Seq[Setting[_]] = Seq(
-    sourceDirectory in Compile := baseDirectory.value / "app",
-    scalaSource in Compile := baseDirectory.value / "app",
-    javaSource in Compile := baseDirectory.value / "app",
+    Compile / sourceDirectory := baseDirectory.value / "app",
+    Compile / scalaSource := baseDirectory.value / "app",
+    Compile / javaSource := baseDirectory.value / "app",
 
-    sourceDirectories in(Compile, TwirlKeys.compileTemplates) := Seq((sourceDirectory in Compile).value),
-    sourceDirectories in(Test, TwirlKeys.compileTemplates) := Seq((sourceDirectory in Compile).value),
+    Compile / TwirlKeys.compileTemplates / sourceDirectories := Seq((Compile / sourceDirectory).value),
+    Test / TwirlKeys.compileTemplates / sourceDirectories := Seq((Compile / sourceDirectory).value),
 
-    sourceDirectory in Test := baseDirectory.value / "test",
-    scalaSource in Test := baseDirectory.value / "test",
-    javaSource in Test := baseDirectory.value / "test",
+    Test / sourceDirectory := baseDirectory.value / "test",
+    Test / scalaSource := baseDirectory.value / "test",
+    Test / javaSource := baseDirectory.value / "test",
 
-    resourceDirectory in Compile := baseDirectory.value / "conf",
-    resourceDirectory in Test := baseDirectory.value / "conf",
+    Compile / resourceDirectory := baseDirectory.value / "conf",
+    Test / resourceDirectory := baseDirectory.value / "conf",
 
-    sourceDirectory in Assets := baseDirectory.value / "assets",
-    resourceDirectory in Assets := baseDirectory.value / "public",
+    Assets / sourceDirectory := baseDirectory.value / "assets",
+    Assets / resourceDirectory := baseDirectory.value / "public",
 
-    (managedClasspath in Compile) += (sourceDirectory in Assets).value,
+    Compile / managedClasspath += (Assets / sourceDirectory).value,
 
-    packagePrefix in Assets := "public/",
-    (managedClasspath in Runtime) += (packageBin in Assets).value
+    Assets / packagePrefix := "public/",
+    (Runtime / managedClasspath) += (Assets / packageBin).value
   )
 
   val packageSettings: Seq[Setting[_]] = Seq(
-    mappings in Universal ++= directory((resourceDirectory in Compile).value),
+    Universal / mappings ++= directory((Compile / resourceDirectory).value),
     scriptClasspath := {
       Seq("*", "../conf")
     },
 
-    mappings in(Compile, packageBin) ~= { in =>
-      in.filter { case (path, x) =>
+    Compile / packageBin / mappings ~= { in =>
+      in.filter { case (path, _) =>
         if (path.isDirectory) {
           true
         } else {

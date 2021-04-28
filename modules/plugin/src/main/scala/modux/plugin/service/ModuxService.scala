@@ -98,8 +98,8 @@ object ModuxService extends AutoPlugin {
         } else {
           inCompilingStage.set(true)
           Def.sequential(
-            packageBin in Assets,
-            compile in Compile,
+            Assets / packageBin,
+            Compile / compile,
             Def.task[Unit] {
               delayState.set(true)
               Future {
@@ -115,8 +115,8 @@ object ModuxService extends AutoPlugin {
           streams.map(_.log.info("Cleaning...")),
           clean,
           Def.task(writeMode("compile")),
-          packageBin in Assets,
-          compile in Compile
+          Assets / packageBin,
+          Compile / compile
         ).map(_ => {})
       }
     }
@@ -134,9 +134,9 @@ object ModuxService extends AutoPlugin {
       Def.task[Unit] {
         val streamValue: TaskStreams = streams.value
         moduxCurrentState.serverReloader.reload()
-        (watchStartMessage in(Compile, run)).value(0, thisProjectRef.value, Nil).foreach(x => streamValue.log.info(x))
+        (Compile / run / watchStartMessage).value(0, thisProjectRef.value, Nil).foreach(x => streamValue.log.info(x))
         ModuxUtils.waitForEnter(pollInterval.value.toMillis)
-        (watchOnTermination in(Compile, run)).value(Watch.Ignore, "", 0, state.value)
+        (Compile / run / watchOnTermination).value(Watch.Ignore, "", 0, state.value)
       }
     }
   }.dependsOn(taskCompile)
@@ -151,10 +151,10 @@ object ModuxService extends AutoPlugin {
   }
 
   val createServer: Def.Initialize[Task[ServerReloader]] = Def.task {
-    val depsClasspath: Classpath = (dependencyClasspath in(Compile, run)).value
-    val cd: File = (classDirectory in(Compile, run)).value
-    val rd: Seq[File] = (resourceDirectories in(Compile, run)).value
-    val assetsDir = Seq((packageBin in Assets).value)
+    val depsClasspath: Classpath = (Compile / run / dependencyClasspath).value
+    val cd: File = (Compile / run / classDirectory).value
+    val rd: Seq[File] = (Compile / run / resourceDirectories).value
+    val assetsDir = Seq((Assets / packageBin).value)
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
     val (persisted, deps) = depsClasspath.map(_.data).partition(x => x.getAbsolutePath.contains("modux"))
@@ -212,7 +212,7 @@ object ModuxService extends AutoPlugin {
   }
 
   private val exportTask: Def.Initialize[Task[ServerReloader]] = Def.sequential(
-    compile in Compile,
+    Compile / compile,
     createServer
   )
 
@@ -262,7 +262,7 @@ object ModuxService extends AutoPlugin {
     moduxExportYaml := saveExport("yaml").value,
     moduxExportJson := saveExport("json").value,
     moduxOpenAPIVersion := 3,
-    mappings in Universal ++= directory("conf"),
+    Universal / mappings ++= directory("conf"),
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Def.setting {
       if (moduxOpenAPIVersion.value == 2) {
@@ -271,17 +271,17 @@ object ModuxService extends AutoPlugin {
         Seq(CommonSettings.moduxServer, CommonSettings.moduxOpenAPIV3)
       }
     }.value,
-    mainClass in Compile := Option("modux.server.ProdServer"),
-    mainClass in(Compile, run) := Option("modux.server.DevServer"),
-    run in Compile := runnerImpl.evaluated,
-    watchStartMessage in(Compile, run) := watchStartMessageImpl.value,
-    watchPersistFileStamps in(Compile, run) := true,
-    watchTriggers in(Compile, run) ++= Seq((sourceDirectory in Compile).value.toGlob / **, (resourceDirectory in Compile).value.toGlob / **),
-    watchOnTermination in(Compile, run) := watchOnTerminationImpl,
-    watchTriggeredMessage in(Compile, run) := watchTriggeredMessageImpl,
-    watchOnFileInputEvent in(Compile, run) := watchOnFileInputEventImpl,
+    Compile / mainClass := Option("modux.server.ProdServer"),
+    Compile / run / mainClass := Option("modux.server.DevServer"),
+    Compile / run := runnerImpl.evaluated,
+    Compile / run / watchStartMessage := watchStartMessageImpl.value,
+    Compile / run / watchPersistFileStamps := true,
+    Compile / run / watchTriggers ++= Seq((Compile / sourceDirectory).value.toGlob / **, (Compile / resourceDirectory).value.toGlob / **),
+    Compile / run / watchOnTermination := watchOnTerminationImpl,
+    Compile / run / watchTriggeredMessage := watchTriggeredMessageImpl,
+    Compile / run / watchOnFileInputEvent := watchOnFileInputEventImpl,
     scriptClasspath := Seq("*", s"../conf"),
-    javaOptions in Universal := Def.task {
+    Universal / javaOptions := Def.task {
       Seq(
         s"-Dmodux.host=${moduxHost.value}",
         s"-Dmodux.port=${moduxPort.value}",

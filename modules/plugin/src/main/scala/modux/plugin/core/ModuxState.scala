@@ -24,7 +24,10 @@ case object Empty extends ModuxState {
 
 case class InProgress(state: State, serverReloader: ServerReloader) extends ModuxState {
   lazy val isContinuousMode: Boolean = {
-    state.get(Watched.ContinuousWatchService).isDefined || state.get(Watched.ContinuousEventMonitor).isDefined
+//    state.get(Watched.ContinuousWatchService).isDefined || state.get(Watched.ContinuousEventMonitor).isDefined
+//    println(state.interactive)
+//    state.definedCommands.exists(_.nameOption.contains("~"))
+    true
   }
 
   override def initialized: Boolean = true
