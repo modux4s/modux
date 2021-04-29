@@ -23,3 +23,5 @@ project/target/
 .scala_dependencies
 .worksheet
 /.bsp/
+/.metals/
+/.vscode/
