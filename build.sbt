@@ -2,7 +2,7 @@ enablePlugins(UpdatesPlugin)
 
 import sbt._
 
-ThisBuild / version := "1.2.3-SNAPSHOT"
+ThisBuild / version := "1.2.3"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / organizationName := "jsoft"
@@ -13,7 +13,6 @@ ThisBuild / resolvers += Resolver.bintrayRepo("sbt", "sbt-plugin-releases")
 ThisBuild / licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-resolvers += Resolver.mavenLocal
 ThisBuild / bintrayReleaseOnPublish := false
 
 lazy val disablingPublishingSettings =

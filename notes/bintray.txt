@@ -1,1 +1,1 @@
-sbt -Dbintray.user=yourBintrayUser -Dbintray.pass=yourBintrayPass
+sbt "-Dbintray.user=yourBintrayUser -Dbintray.pass=yourBintrayPass"

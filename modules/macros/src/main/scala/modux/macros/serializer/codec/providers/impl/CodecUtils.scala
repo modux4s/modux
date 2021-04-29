@@ -2,9 +2,8 @@ package modux.macros.serializer.codec.providers.impl
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
-import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
-import com.fasterxml.jackson.dataformat.xml.{JacksonXmlModule, XmlFactory, XmlMapper}
-import com.fasterxml.jackson.dataformat.yaml.{YAMLFactory, YAMLMapper}
+import com.fasterxml.jackson.dataformat.xml.XmlMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 

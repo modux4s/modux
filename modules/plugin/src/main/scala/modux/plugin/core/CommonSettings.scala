@@ -14,7 +14,6 @@ object CommonSettings {
   private final val ExcludeFilter = Seq("properties", "conf", "props", "txt", "xml")
 
   val moduxVersion: String = buildinfo.BuildInfo.version
-
   val moduxMacros: ModuleID = "jsoft.modux" %% "modux-macros" % moduxVersion
   val moduxCore: ModuleID = "jsoft.modux" %% "modux-core" % moduxVersion
   val moduxServer: ModuleID = "jsoft.modux" %% "modux-server" % moduxVersion

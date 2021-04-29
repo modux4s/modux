@@ -8,8 +8,8 @@ object Deps {
   val scalaVersions: Seq[String] = Seq("2.12.13", "2.13.4")
   //************** VERSIONS **************//
   private final val macwireVersion: String = "2.3.7"
-  private final val akkaVersion: String = "2.6.10"
-  private final val akkaHTTPVersion: String = "10.2.2"
+  private final val akkaVersion: String = "2.6.14"
+  private final val akkaHTTPVersion: String = "10.2.4"
   private final val scalaLoggingVersion: String = "3.9.2"
   private final val xbeanVersion: String = "4.18"
   private final val ansiInterpolatorVersion: String = "1.1.0"
@@ -42,7 +42,9 @@ object Deps {
     scalaVersion,
     sbtVersion,
     BuildInfoKey("kafkaVersion", kafkaVersion),
-    BuildInfoKey("pac4jVersion", pac4jVersion)
+    BuildInfoKey("pac4jVersion", pac4jVersion),
+    BuildInfoKey("akkaVersion", akkaVersion),
+    BuildInfoKey("akkaHTTPVersion", akkaHTTPVersion)
   )
 
   //************** DI **************//
@@ -92,7 +94,7 @@ object Deps {
   lazy val swaggerModel2 = "io.swagger" % "swagger-models" % swaggerVersion2
   lazy val swaggerJaxrs2 = "io.swagger" % "swagger-jaxrs" % swaggerVersion2
   //************** GRAPHQL **************//
-  lazy val graphql = "jsoft.graphql4s" %% "graphql4s" % "0.1.0"
+  lazy val graphql = "jsoft.graphql4s" %% "graphql4s" % "0.1.2"
   //************** UTILS **************//
   lazy val ansiInterpolator = "org.backuity" %% "ansi-interpolator" % ansiInterpolatorVersion
   lazy val typeSafeConf = "com.typesafe" % "config" % typeConfigVersion
