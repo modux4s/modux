@@ -10,20 +10,10 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.JavaConverters._
 import scala.language.reflectiveCalls
-
-sealed trait Instance {
-  def server: Server
-
-  def context: BuildContext
-
-  def reload(): Unit = server.reload(context)
-
-  def exporter(): String = server.exporter(context)
-
-  def kill(): Unit
-}
+import scala.util.Try
 
 private[modux] case class ServerReloader private(
+                                                  basePath:String,
                                                   servers: Seq[ServerDecl],
                                                   settings: java.util.Map[String, String],
                                                   classpathDir: File,
@@ -35,41 +25,15 @@ private[modux] case class ServerReloader private(
                                                   root: ClassLoader
                                                 ) {
 
-  private val instanceRef = new AtomicReference[Instance]()
-
-  private def buildInstance(): Instance = new Instance {
-
-    private val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
-    private val depsLoader: NamedClassLoader = new NamedClassLoader("deps-loader", Path.toURLs(dependencies), delegator)
-    private val baseClassloader: NamedClassLoader = new NamedClassLoader("mods-loader", Path.toURLs(moduxModules ++ resourceDir), depsLoader)
-    private val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
-    private val appLoader: NamedClassLoader = new NamedClassLoader(s"current-application-loader-${System.currentTimeMillis()}", Path.toURLs(Seq(classpathDir)), assetsLoader)
-
-    lazy val server: Server = {
-      Threads.withContextClassLoader(baseClassloader) {
-        import scala.language.reflectiveCalls
-        val m: Class[_] = baseClassloader.loadClass("modux.server.DevServer$")
-        m.getField("MODULE$").get(null).asInstanceOf[Server]
-      }
-    }
-
-    override def context: BuildContext = BuildContext(settings, appLoader, servers.asJava)
-
-    override def kill(): Unit = {
-      depsLoader.destroy()
-      baseClassloader.destroy()
-      assetsLoader.destroy()
-      appLoader.destroy()
-    }
-  }
-  /*private val appClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
+  private val internalClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
+  private val appClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
   private val assetsLoaderRef = new AtomicReference[JarFileClassLoader]()
 
   private val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
-
+  private val (dyncDep, fixedDeps) = dependencies.partition(x => x.absolutePath.startsWith(basePath))
   private val baseClassloader: NamedClassLoader = {
 
-    val depsLoader: NamedClassLoader = new NamedClassLoader("deps-loader", Path.toURLs(dependencies), delegator)
+    val depsLoader: NamedClassLoader = new NamedClassLoader("deps-loader", Path.toURLs(fixedDeps), delegator)
 
     new NamedClassLoader(
       "mods-loader",
@@ -77,15 +41,6 @@ private[modux] case class ServerReloader private(
       depsLoader
     )
   }
-
-  private val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
-  //  assetsLoaderRef.set(assetsLoader)
-
-  val appLoader: NamedClassLoader = new NamedClassLoader(
-    s"current-application-loader-${System.currentTimeMillis()}",
-    Path.toURLs(Seq(classpathDir)),
-    assetsLoader
-  )
 
   private val server: Server = {
     Threads.withContextClassLoader(baseClassloader) {
@@ -97,8 +52,10 @@ private[modux] case class ServerReloader private(
 
   def createAppLoader(): BuildContext = {
 
-    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
+    val dyncDepsLoader = new JarFileClassLoader("dync-deps-loader", Path.toURLs(dyncDep), baseClassloader)
+    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), dyncDepsLoader)
     assetsLoaderRef.set(assetsLoader)
+    internalClassLoaderRef.set(dyncDepsLoader)
 
     val appLoader: NamedClassLoader = new NamedClassLoader(
       s"current-application-loader-${System.currentTimeMillis()}",
@@ -107,41 +64,31 @@ private[modux] case class ServerReloader private(
     )
 
     BuildContext(settings, appLoader, servers.asJava)
-  }*/
+  }
 
   def shutdown(): Unit = {
-
+    server.stop()
   }
 
   def reload(): Unit = {
-    killLast()
-    val instance: Instance = buildInstance()
-    instance.reload()
-    instanceRef.set(instance)
+    destroyAppLoader()
+    server.reload(createAppLoader())
   }
 
   def exporter(mode: String): String = {
-    val instance: Instance = buildInstance()
-    val server: Server = instance.server
-    val buildContext: BuildContext = instance.context
+    val buildContext: BuildContext = createAppLoader()
     buildContext.settings.put("export.mode", mode)
 
-    instance.exporter()
+    server.exporter(buildContext)
   }
 
-  private def killLast(): Unit = {
-    Option(instanceRef.get()).foreach(_.kill())
+  private def destroyAppLoader(): Unit = {
+    Seq(Option(assetsLoaderRef.get()), Option(appClassLoaderRef.get()), Option(internalClassLoaderRef.get()))
+      .flatten
+      .foreach { x =>
+        Try(x.close())
+        Try(x.destroy())
+      }
+
   }
-
-  /*
-    private def destroyAppLoader(): Unit = {
-
-      Seq(Option(assetsLoaderRef.get()), Option(appClassLoaderRef.get()))
-        .flatten
-        .foreach { x =>
-          Try(x.close())
-          Try(x.destroy())
-        }
-
-    }*/
 }

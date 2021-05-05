@@ -17,6 +17,7 @@ import sbt.util.CacheStore
 import sbt.util.StampedFormat._
 import sbt.{AutoPlugin, Command, Def, Plugins, Project, ProjectRef, State, Task, file, _}
 
+import java.io.File
 import java.nio.file.{Path => JPath}
 import java.util
 import java.util.concurrent.atomic.AtomicLong
@@ -98,7 +99,7 @@ object ModuxService extends AutoPlugin {
           clean,
           Def.task(writeMode("compile")),
           Assets / packageBin,
-          (Compile / compile)
+          Compile / compile
         ).map(_ => {})
       }
     }
@@ -137,6 +138,7 @@ object ModuxService extends AutoPlugin {
     val cd: File = (Compile / run / classDirectory).value
     val rd: Seq[File] = (Compile / run / resourceDirectories).value
     val assetsDir = Seq((Assets / packageBin).value)
+    val rootDir = new File(loadedBuild.value.root).absolutePath
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
     val (persisted, deps) = depsClasspath.map(_.data).partition(x => x.getAbsolutePath.contains("modux"))
@@ -147,6 +149,7 @@ object ModuxService extends AutoPlugin {
     settings.put("host", moduxHost.value)
     settings.put("port", moduxPort.value.toString)
     settings.put("baseDirectory", baseDirectory.value.toString)
+    settings.put("rootDirectory", rootDir)
     settings.put("logger.file", moduxLogFile.value)
     settings.put("project.description", description.value)
     settings.put("project.version", version.value)
@@ -158,6 +161,7 @@ object ModuxService extends AutoPlugin {
     }
 
     ServerReloader(
+      rootDir,
       servers.value,
       settings,
       cd,
@@ -166,7 +170,7 @@ object ModuxService extends AutoPlugin {
       buildLoader,
       deps,
       persisted.filterNot(x => x.absolutePath.contains("dev-server")),
-      scalaInstance.value.loaderLibraryOnly
+      scalaInstance.value.loaderLibraryOnly,
     )
   }
 
