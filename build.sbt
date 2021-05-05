@@ -2,7 +2,7 @@ enablePlugins(UpdatesPlugin)
 
 import sbt._
 
-ThisBuild / version := "1.2.3"
+ThisBuild / version := "1.2.4"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "jsoft.modux"
 ThisBuild / organizationName := "jsoft"

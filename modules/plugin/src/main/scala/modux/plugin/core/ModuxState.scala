@@ -23,12 +23,7 @@ case object Empty extends ModuxState {
 }
 
 case class InProgress(state: State, serverReloader: ServerReloader) extends ModuxState {
-  lazy val isContinuousMode: Boolean = {
-//    state.get(Watched.ContinuousWatchService).isDefined || state.get(Watched.ContinuousEventMonitor).isDefined
-//    println(state.interactive)
-//    state.definedCommands.exists(_.nameOption.contains("~"))
-    state.attributes.keys.exists(_.label == "dynamicInputs")
-  }
+  lazy val isContinuousMode: Boolean = state.attributes.keys.exists(_.label == "dynamicInputs")
 
   override def initialized: Boolean = true
 

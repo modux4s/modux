@@ -10,7 +10,18 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.JavaConverters._
 import scala.language.reflectiveCalls
-import scala.util.Try
+
+sealed trait Instance {
+  def server: Server
+
+  def context: BuildContext
+
+  def reload(): Unit = server.reload(context)
+
+  def exporter(): String = server.exporter(context)
+
+  def kill(): Unit
+}
 
 private[modux] case class ServerReloader private(
                                                   servers: Seq[ServerDecl],
@@ -24,7 +35,34 @@ private[modux] case class ServerReloader private(
                                                   root: ClassLoader
                                                 ) {
 
-  private val appClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
+  private val instanceRef = new AtomicReference[Instance]()
+
+  private def buildInstance(): Instance = new Instance {
+
+    private val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
+    private val depsLoader: NamedClassLoader = new NamedClassLoader("deps-loader", Path.toURLs(dependencies), delegator)
+    private val baseClassloader: NamedClassLoader = new NamedClassLoader("mods-loader", Path.toURLs(moduxModules ++ resourceDir), depsLoader)
+    private val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
+    private val appLoader: NamedClassLoader = new NamedClassLoader(s"current-application-loader-${System.currentTimeMillis()}", Path.toURLs(Seq(classpathDir)), assetsLoader)
+
+    lazy val server: Server = {
+      Threads.withContextClassLoader(baseClassloader) {
+        import scala.language.reflectiveCalls
+        val m: Class[_] = baseClassloader.loadClass("modux.server.DevServer$")
+        m.getField("MODULE$").get(null).asInstanceOf[Server]
+      }
+    }
+
+    override def context: BuildContext = BuildContext(settings, appLoader, servers.asJava)
+
+    override def kill(): Unit = {
+      depsLoader.destroy()
+      baseClassloader.destroy()
+      assetsLoader.destroy()
+      appLoader.destroy()
+    }
+  }
+  /*private val appClassLoaderRef: AtomicReference[NamedClassLoader] = new AtomicReference[NamedClassLoader]()
   private val assetsLoaderRef = new AtomicReference[JarFileClassLoader]()
 
   private val delegator: DelegatingClassLoader = new DelegatingClassLoader(root, buildClassloader)
@@ -39,6 +77,15 @@ private[modux] case class ServerReloader private(
       depsLoader
     )
   }
+
+  private val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
+  //  assetsLoaderRef.set(assetsLoader)
+
+  val appLoader: NamedClassLoader = new NamedClassLoader(
+    s"current-application-loader-${System.currentTimeMillis()}",
+    Path.toURLs(Seq(classpathDir)),
+    assetsLoader
+  )
 
   private val server: Server = {
     Threads.withContextClassLoader(baseClassloader) {
@@ -60,32 +107,41 @@ private[modux] case class ServerReloader private(
     )
 
     BuildContext(settings, appLoader, servers.asJava)
-  }
+  }*/
 
   def shutdown(): Unit = {
-    server.stop()
+
   }
 
   def reload(): Unit = {
-    destroyAppLoader()
-    server.reload(createAppLoader())
+    killLast()
+    val instance: Instance = buildInstance()
+    instance.reload()
+    instanceRef.set(instance)
   }
 
   def exporter(mode: String): String = {
-    val buildContext: BuildContext = createAppLoader()
+    val instance: Instance = buildInstance()
+    val server: Server = instance.server
+    val buildContext: BuildContext = instance.context
     buildContext.settings.put("export.mode", mode)
 
-    server.exporter(buildContext)
+    instance.exporter()
   }
 
-  private def destroyAppLoader(): Unit = {
-
-    Seq(Option(assetsLoaderRef.get()), Option(appClassLoaderRef.get()))
-      .flatten
-      .foreach { x =>
-        Try(x.close())
-        Try(x.destroy())
-      }
-
+  private def killLast(): Unit = {
+    Option(instanceRef.get()).foreach(_.kill())
   }
+
+  /*
+    private def destroyAppLoader(): Unit = {
+
+      Seq(Option(assetsLoaderRef.get()), Option(appClassLoaderRef.get()))
+        .flatten
+        .foreach { x =>
+          Try(x.close())
+          Try(x.destroy())
+        }
+
+    }*/
 }

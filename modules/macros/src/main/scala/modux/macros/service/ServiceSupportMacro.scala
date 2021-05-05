@@ -242,9 +242,9 @@ object ServiceSupportMacro {
       val tmp: String = pathBuilder(parsedPath.pathParams, argsMap)
 
       if (isWebSocket) {
-        s"(__path__($tmp))"
+        s"(pathPrefix($tmp))"
       } else {
-        s"(__path__($tmp) ${inferMethod(method, hasNotUsedParam)})"
+        s"(pathPrefix($tmp) ${inferMethod(method, hasNotUsedParam)})"
       }
     }
 
@@ -290,7 +290,7 @@ object ServiceSupportMacro {
              |  extractRequestContext{__request__ =>
              |    val __invoke__ = AkkaUtils.createInvoke(__request__)
              |    val srv = AkkaUtils.check(serviceCall(__src__, __invoke__))
-             |    onComplete($onCompleteTpl){
+             |    akkaOnComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
              |      case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
@@ -307,7 +307,7 @@ object ServiceSupportMacro {
              |  entityAkka(SerializationUtil.moduxAsSource[$requestTypeStr]){__src__ =>
              |    val __invoke__ = AkkaUtils.createInvoke(__request__)
              |    val srv = AkkaUtils.check(serviceCall(__src__, __invoke__))
-             |    onComplete($onCompleteTpl){
+             |    akkaOnComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
              |      case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
@@ -324,7 +324,7 @@ object ServiceSupportMacro {
              |extractRequestContext{__request__ =>
              |  val __invoke__ = AkkaUtils.createInvoke(__request__)
              |  val srv = AkkaUtils.check(serviceCall($requestTypeStr, __invoke__))
-             |  onComplete($onCompleteTpl){
+             |  akkaOnComplete($onCompleteTpl){
              |    case Failure(e) =>
              |      $errorTpl
              |    case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
@@ -337,7 +337,7 @@ object ServiceSupportMacro {
              |  entityAkka(as[$requestType]){ __entity__ =>
              |    val __invoke__ = AkkaUtils.createInvoke(__request__)
              |    val srv = AkkaUtils.check(serviceCall(__entity__, __invoke__))
-             |    onComplete($onCompleteTpl){
+             |    akkaOnComplete($onCompleteTpl){
              |      case Failure(e) =>
              |        $errorTpl
              |      case Success(__value__) => AkkaUtils.mapResponse(__invoke__){$responseTpl}
@@ -477,7 +477,7 @@ object ServiceSupportMacro {
        |      import akka.http.scaladsl.server.Directives._
        |      import scala.util.{Success, Failure, Try}
        |      import scala.concurrent.Future
-       |      import akka.http.scaladsl.server.Directives.{path => __path__, entity => entityAkka}
+       |      import akka.http.scaladsl.server.Directives.{entity => entityAkka, onComplete => akkaOnComplete}
        |      import modux.model._
        |      import akka.http.scaladsl.server.Route
        |      import akka.http.scaladsl.model.StatusCodes

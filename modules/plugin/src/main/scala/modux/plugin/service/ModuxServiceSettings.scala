@@ -12,7 +12,7 @@ trait ModuxServiceSettings {
 
   lazy val contact = settingKey[Option[String]]("Project contact for swagger export")
   lazy val servers = settingKey[Seq[ServerDecl]]("Endpoints for swagger export")
-
+  lazy val startServer: TaskKey[Unit] = taskKey("Starts modux server")
   lazy val moduxState: TaskKey[ModuxState] = taskKey("Server reloader builder")
   lazy val moduxHost = settingKey[String]("host")
   lazy val moduxPort = settingKey[Int]("port")

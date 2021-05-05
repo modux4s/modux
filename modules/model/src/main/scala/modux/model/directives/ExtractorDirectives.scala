@@ -5,7 +5,7 @@ import modux.model.header.{Invoke, ResponseHeader}
 import modux.model.service.Call
 import org.pac4j.core.profile.UserProfile
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 trait ExtractorDirectives {
 
@@ -53,5 +53,10 @@ trait ExtractorDirectives {
 
   final def onCall[IN, OUT](f: => Call[IN, OUT]): Call[IN, OUT] = (in, req) => {
     f(in, req)
+  }
+
+  final def onComplete[IN , OUT , A](f:Future[A])(solver: A => Call[IN, OUT]): Call[IN, OUT] = {(in, req)=>
+    implicit val ec: ExecutionContextExecutor = req.executionContext
+    f.flatMap(x=> solver(x)(in, req))
   }
 }

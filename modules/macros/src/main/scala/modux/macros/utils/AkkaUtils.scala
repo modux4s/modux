@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 object AkkaUtils extends Directives {
 
-//  import akka.http.scaladsl.server.Directives.mapResponse
+  //  import akka.http.scaladsl.server.Directives.mapResponse
   private lazy val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def check[T](f: => Future[T])(implicit ec: ExecutionContext): Future[T] = {
@@ -24,7 +24,7 @@ object AkkaUtils extends Directives {
   def createInvoke(requestContext: RequestContext): Invoke = Invoke(requestContext, Nil, ResponseHeader())
 
   def mapResponse(invoke: Invoke): Directive0 = {
-    mapResponse{response =>
+    mapResponse { response =>
       ResponseInstruction(response, invoke.responseHeader.getInstructions.toList)
     }
   }
