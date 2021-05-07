@@ -30,7 +30,7 @@ object Deps {
   private final val akkaKafkaVersion: String = "2.0.6"
   private final val akkaCorsVersion: String = "1.1.1"
   private final val caffeineVersion: String = "2.8.8"
-  private final val twirlVersion: String = "1.5.0"
+  private final val twirlVersion: String = "1.5.1"
   private final val pac4jVersion: String = "4.3.0"
   private final val kafkaVersion: String = "2.6.0"
   private val sbtWebVersion: String = "1.4.4"

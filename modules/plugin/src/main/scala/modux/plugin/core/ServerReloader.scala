@@ -52,16 +52,16 @@ private[modux] case class ServerReloader private(
 
   def createAppLoader(): BuildContext = {
 
-    val dyncDepsLoader = new JarFileClassLoader("dync-deps-loader", Path.toURLs(dyncDep), baseClassloader)
-    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), dyncDepsLoader)
-    assetsLoaderRef.set(assetsLoader)
-    internalClassLoaderRef.set(dyncDepsLoader)
-
+    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
+    val dyncDepsLoader = new JarFileClassLoader("dync-deps-loader", Path.toURLs(dyncDep), assetsLoader)
     val appLoader: NamedClassLoader = new NamedClassLoader(
       s"current-application-loader-${System.currentTimeMillis()}",
       Path.toURLs(Seq(classpathDir)),
-      assetsLoader
+      dyncDepsLoader
     )
+    internalClassLoaderRef.set(dyncDepsLoader)
+    assetsLoaderRef.set(assetsLoader)
+    appClassLoaderRef.set(appLoader)
 
     BuildContext(settings, appLoader, servers.asJava)
   }
@@ -89,6 +89,5 @@ private[modux] case class ServerReloader private(
         Try(x.close())
         Try(x.destroy())
       }
-
   }
 }

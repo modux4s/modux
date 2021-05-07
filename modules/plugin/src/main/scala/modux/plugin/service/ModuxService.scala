@@ -20,11 +20,12 @@ import sbt.{AutoPlugin, Command, Def, Plugins, Project, ProjectRef, State, Task,
 import java.io.File
 import java.nio.file.{Path => JPath}
 import java.util
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
 object ModuxService extends AutoPlugin {
   private final val store: CacheStore = sbt.util.CacheStore(file("./target/streams/modux"))
   private final val timestamp = new AtomicLong(System.nanoTime())
+  private final val withError = new AtomicBoolean(false)
   private def lastIsCompile(): Boolean = {
     store.read[Option[String]](None).contains("compile")
   }
@@ -60,7 +61,11 @@ object ModuxService extends AutoPlugin {
 
   private val watchStartMessageImpl = Def.setting {
     (_: Int, _: ProjectRef, _: Seq[String]) =>
-      PrintUtils.success(s"Server online at http://${moduxHost.value}:${moduxPort.value}/")
+      if (withError.get()) {
+        PrintUtils.error("Server is down. Fix the problems first.")
+      } else {
+        PrintUtils.success(s"Server online at http://${moduxHost.value}:${moduxPort.value}/")
+      }
       None
   }
 
@@ -91,7 +96,7 @@ object ModuxService extends AutoPlugin {
       if (lastIsCompile()) {
         Def.sequential(
           Assets / packageBin,
-          Compile / compile
+          Compile / compile,
         ).map(_ => ())
       } else {
         Def.sequential(
@@ -99,8 +104,8 @@ object ModuxService extends AutoPlugin {
           clean,
           Def.task(writeMode("compile")),
           Assets / packageBin,
-          Compile / compile
-        ).map(_ => {})
+          Compile / compile,
+        ).map(_ => ())
       }
     }
   )
@@ -108,7 +113,6 @@ object ModuxService extends AutoPlugin {
   val runnerImpl = Def.inputTaskDyn[Unit] {
 
     val moduxCurrentState: ModuxState = moduxState.value
-
     if (moduxCurrentState.isContinuous) {
       Def.task[Unit] {
         moduxCurrentState.serverReloader.reload()
@@ -117,9 +121,9 @@ object ModuxService extends AutoPlugin {
       Def.task[Unit] {
         val streamValue: TaskStreams = streams.value
         moduxCurrentState.serverReloader.reload()
-        (run / watchStartMessage).value(0, thisProjectRef.value, Nil).foreach(x => streamValue.log.info(x))
+        (Compile / run / watchStartMessage).value(0, thisProjectRef.value, Nil).foreach(x => streamValue.log.info(x))
         ModuxUtils.waitForEnter()
-        (run / watchOnTermination).value(Watch.Ignore, "", 0, state.value)
+        (Compile / run / watchOnTermination).value(Watch.Ignore, "", 0, state.value)
       }
     }
   }.dependsOn(taskCompile)
@@ -137,8 +141,9 @@ object ModuxService extends AutoPlugin {
     val depsClasspath: Classpath = (Compile / run / dependencyClasspath).value
     val cd: File = (Compile / run / classDirectory).value
     val rd: Seq[File] = (Compile / run / resourceDirectories).value
+    println(rd.mkString("\n"))
     val assetsDir = Seq((Assets / packageBin).value)
-    val rootDir = new File(loadedBuild.value.root).absolutePath
+    val rootDir: String = new File(loadedBuild.value.root).absolutePath
 
     val buildLoader: ClassLoader = this.getClass.getClassLoader
     val (persisted, deps) = depsClasspath.map(_.data).partition(x => x.getAbsolutePath.contains("modux"))
@@ -193,7 +198,6 @@ object ModuxService extends AutoPlugin {
           ModuxState.update(InProgress(state.value, createServer.value))
         }
       )
-
     }
   }
 
@@ -249,8 +253,7 @@ object ModuxService extends AutoPlugin {
   }
 
   override def globalSettings: Seq[Def.Setting[_]] = Seq(
-    useSuperShell := false,
-    //    resolvers += Resolver.bintrayRepo("jsoft", "maven")
+    useSuperShell := false
   )
 
   override def projectSettings: Seq[Setting[_]] = Seq(
@@ -274,19 +277,16 @@ object ModuxService extends AutoPlugin {
       }
     }.value,
 
-    run / watchLogLevel := sbt.util.Level.Error,
     Compile / mainClass := Option("modux.server.ProdServer"),
     Compile / run / mainClass := Option("modux.server.DevServer"),
     run := runnerImpl.evaluated,
+    run / watchLogLevel := sbt.util.Level.Error,
     run / watchStartMessage := watchStartMessageImpl.value,
-    //     startServer / watchTriggers += Seq((Compile / sourceDirectory).value.toGlob / **, (Compile / resourceDirectory).value.toGlob / **),
     run / watchInputOptions := Seq(
       Watch.InputOption("<enter>", "Stop modux server", Watch.Run("stopModuxServer"), '\n', '\r', 4.toChar)
     ),
-    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.scala",
-    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.java",
-    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.config",
-    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.xml",
+    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.properties",
+    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.scala.*",
     run / watchOnTermination := watchOnTerminationImpl,
     run / watchTriggeredMessage := watchTriggeredMessageImpl,
     run / watchOnFileInputEvent := watchOnFileInputEventImpl,
