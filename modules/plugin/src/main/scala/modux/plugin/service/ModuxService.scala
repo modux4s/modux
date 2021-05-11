@@ -60,7 +60,7 @@ object ModuxService extends AutoPlugin {
   private val watchStartMessageImpl = Def.setting {
     { (_: Int, _: ProjectRef, _: Seq[String]) =>
       if (withError.get()) {
-        PrintUtils.error("[error] Modux server is down. Fix errors first.")
+        PrintUtils.error("Modux server is down. Fix errors first.")
       } else {
         PrintUtils.success(s"Server online at http://${moduxHost.value}:${moduxPort.value}/")
       }
