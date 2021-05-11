@@ -14,7 +14,7 @@ object PrintUtils {
 
   def info(msg: String): Unit = println(s"[info] $msg")
 
-  def success(msg: String): Unit = println(s"${Console.GREEN}[success]${Console.RESET} $msg")
+  def success(msg: String): Unit = println(s"[${Console.GREEN}success${Console.RESET}] $msg")
 
-  def error(msg: String): Unit = println(s"${Console.RED}[error]${Console.RESET} $msg")
+  def error(msg: String): Unit = println(s"[${Console.RED}error${Console.RESET}] $msg")
 }

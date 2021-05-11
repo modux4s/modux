@@ -47,26 +47,26 @@ object ModuxService extends AutoPlugin {
     if (path.endsWith("~")) {
       Watch.Ignore
     } else {
-      synchronized {
-        val current: Long = System.nanoTime()
-        if (current - timestamp.get() > 1000) {
-          timestamp.set(current)
-          Watch.Trigger
-        } else {
-          Watch.Ignore
-        }
+      val current: Long = System.nanoTime()
+      if (current - timestamp.get() > 1000) {
+        timestamp.set(current)
+        Watch.Trigger
+      } else {
+        Watch.Ignore
       }
     }
   }
 
   private val watchStartMessageImpl = Def.setting {
-    (_: Int, _: ProjectRef, _: Seq[String]) =>
+    { (_: Int, _: ProjectRef, _: Seq[String]) =>
       if (withError.get()) {
-        PrintUtils.error("Server is down. Fix the problems first.")
+        PrintUtils.error("[error] Modux server is down. Fix errors first.")
       } else {
         PrintUtils.success(s"Server online at http://${moduxHost.value}:${moduxPort.value}/")
       }
+
       None
+    }
   }
 
   private val watchOnTerminationImpl: (Watch.Action, String, Int, State) => State = (_: Watch.Action, _: String, _: Int, state: State) => {
@@ -93,20 +93,23 @@ object ModuxService extends AutoPlugin {
   val taskCompile: Def.Initialize[Task[Unit]] = Def.sequential(
     runningFlag,
     Def.taskDyn {
-      if (lastIsCompile()) {
-        Def.sequential(
-          Assets / packageBin,
-          Compile / compile,
-        ).map(_ => ())
-      } else {
-        Def.sequential(
-          streams.map(_.log.info("Cleaning...")),
-          clean,
-          Def.task(writeMode("compile")),
-          Assets / packageBin,
-          Compile / compile,
-        ).map(_ => ())
-      }
+      //      withError.set(false)
+      {
+        if (lastIsCompile()) {
+          Def.sequential(
+            Assets / packageBin,
+            Compile / compile,
+          )
+        } else {
+          Def.sequential(
+            streams.map(_.log.info("Cleaning...")),
+            clean,
+            Def.task(writeMode("compile")),
+            Assets / packageBin,
+            Compile / compile,
+          )
+        }
+      }.map(_ => withError.set(false))
     }
   )
 
@@ -141,7 +144,6 @@ object ModuxService extends AutoPlugin {
     val depsClasspath: Classpath = (Compile / run / dependencyClasspath).value
     val cd: File = (Compile / run / classDirectory).value
     val rd: Seq[File] = (Compile / run / resourceDirectories).value
-    println(rd.mkString("\n"))
     val assetsDir = Seq((Assets / packageBin).value)
     val rootDir: String = new File(loadedBuild.value.root).absolutePath
 
@@ -286,10 +288,15 @@ object ModuxService extends AutoPlugin {
       Watch.InputOption("<enter>", "Stop modux server", Watch.Run("stopModuxServer"), '\n', '\r', 4.toChar)
     ),
     run / watchTriggers += baseDirectory.value.toGlob / ** / "*.properties",
+    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.conffiref",
+    run / watchTriggers += baseDirectory.value.toGlob / ** / "*.xml",
     run / watchTriggers += baseDirectory.value.toGlob / ** / "*.scala.*",
     run / watchOnTermination := watchOnTerminationImpl,
     run / watchTriggeredMessage := watchTriggeredMessageImpl,
     run / watchOnFileInputEvent := watchOnFileInputEventImpl,
+    run / watchBeforeCommand := {
+      () => withError.set(true)
+    },
     scriptClasspath := Seq("*", s"../conf"),
     Universal / javaOptions := Def.task {
       Seq(

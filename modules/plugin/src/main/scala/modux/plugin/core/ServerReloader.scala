@@ -13,7 +13,7 @@ import scala.language.reflectiveCalls
 import scala.util.Try
 
 private[modux] case class ServerReloader private(
-                                                  basePath:String,
+                                                  basePath: String,
                                                   servers: Seq[ServerDecl],
                                                   settings: java.util.Map[String, String],
                                                   classpathDir: File,
@@ -52,12 +52,12 @@ private[modux] case class ServerReloader private(
 
   def createAppLoader(): BuildContext = {
 
-    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), baseClassloader)
-    val dyncDepsLoader = new JarFileClassLoader("dync-deps-loader", Path.toURLs(dyncDep), assetsLoader)
+    val dyncDepsLoader = new JarFileClassLoader("dync-deps-loader", Path.toURLs(dyncDep), baseClassloader)
+    val assetsLoader = new JarFileClassLoader("assets-app-loader", Path.toURLs(assetsDir), dyncDepsLoader)
     val appLoader: NamedClassLoader = new NamedClassLoader(
       s"current-application-loader-${System.currentTimeMillis()}",
       Path.toURLs(Seq(classpathDir)),
-      dyncDepsLoader
+      assetsLoader
     )
     internalClassLoaderRef.set(dyncDepsLoader)
     assetsLoaderRef.set(assetsLoader)
