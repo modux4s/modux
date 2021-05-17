@@ -77,7 +77,7 @@ trait SecuritySupport extends CallDirectives {
                              clients: String = null,
                              multiProfile: Boolean = true,
                              authorizers: String = "",
-                             enforceFormEncoding: Boolean = true
+                             enforceFormEncoding: Boolean = false
                            )(inner: Call[in, out]): Call[in, out] = {
 
     withFormParameters[in, out](enforceFormEncoding) { params =>
