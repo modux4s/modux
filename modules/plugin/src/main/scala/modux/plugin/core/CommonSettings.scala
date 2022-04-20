@@ -12,15 +12,15 @@ import sbt._
 object CommonSettings {
 
   private final val ExcludeFilter = Seq("properties", "conf", "props", "txt", "xml")
-
+  private val group = "io.github.joacovela16"
   val moduxVersion: String = buildinfo.BuildInfo.version
-  val moduxMacros: ModuleID = "jsoft.modux" %% "modux-macros" % moduxVersion
-  val moduxCore: ModuleID = "jsoft.modux" %% "modux-core" % moduxVersion
-  val moduxServer: ModuleID = "jsoft.modux" %% "modux-server" % moduxVersion
-  val moduxOpenAPIV2: ModuleID = "jsoft.modux" %% "modux-swagger-v2" % moduxVersion
-  val moduxOpenAPIV3: ModuleID = "jsoft.modux" %% "modux-swagger-v3" % moduxVersion
-  val moduxSerialization: ModuleID = "jsoft.modux" %% "modux-serialization" % moduxVersion
-  val moduxKafka: ModuleID = "jsoft.modux" %% "modux-kafka-core" % moduxVersion
+  val moduxMacros: ModuleID = group %% "modux-macros" % moduxVersion
+  val moduxCore: ModuleID = group %% "modux-core" % moduxVersion
+  val moduxServer: ModuleID = group %% "modux-server" % moduxVersion
+  val moduxOpenAPIV2: ModuleID = group %% "modux-swagger-v2" % moduxVersion
+  val moduxOpenAPIV3: ModuleID = group %% "modux-swagger-v3" % moduxVersion
+  val moduxSerialization: ModuleID = group %% "modux-serialization" % moduxVersion
+  val moduxKafka: ModuleID = group %% "modux-kafka-core" % moduxVersion
 
   val projectLayout: Seq[Setting[_]] = Seq(
     Compile / sourceDirectory := baseDirectory.value / "app",
