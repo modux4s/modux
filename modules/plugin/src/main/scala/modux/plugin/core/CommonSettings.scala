@@ -6,8 +6,8 @@ import com.typesafe.sbt.packager.MappingsHelper.directory
 import com.typesafe.sbt.web.Import.Assets
 import com.typesafe.sbt.web.Import.WebKeys.packagePrefix
 import play.twirl.sbt.Import.TwirlKeys
-import sbt.Keys._
-import sbt._
+import sbt.*
+import sbt.Keys.*
 
 object CommonSettings {
 
@@ -22,7 +22,7 @@ object CommonSettings {
   val moduxSerialization: ModuleID = group %% "modux-serialization" % moduxVersion
   val moduxKafka: ModuleID = group %% "modux-kafka-core" % moduxVersion
 
-  val projectLayout: Seq[Setting[_]] = Seq(
+  val projectLayout: Seq[Setting[?]] = Seq(
     Compile / sourceDirectory := baseDirectory.value / "app",
     Compile / scalaSource := baseDirectory.value / "app",
     Compile / javaSource := baseDirectory.value / "app",
@@ -46,7 +46,7 @@ object CommonSettings {
     (Runtime / managedClasspath) += (Assets / packageBin).value
   )
 
-  val packageSettings: Seq[Setting[_]] = Seq(
+  val packageSettings: Seq[Setting[?]] = Seq(
     Universal / mappings ++= directory((Compile / resourceDirectory).value),
     scriptClasspath := {
       Seq("*", "../conf")

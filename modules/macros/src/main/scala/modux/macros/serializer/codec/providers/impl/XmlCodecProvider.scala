@@ -5,8 +5,7 @@ import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import akka.util.ByteString
-import com.fasterxml.jackson.databind.{ObjectMapper, ObjectWriter}
-import com.fasterxml.jackson.dataformat.xml.util.DefaultXmlPrettyPrinter
+import com.fasterxml.jackson.databind.ObjectMapper
 import modux.macros.serializer.codec.providers.api.CodecMixedProvider
 import modux.macros.serializer.streaming.XmlStreamSupport
 

@@ -4,7 +4,6 @@ import akka.http.scaladsl.marshalling.{PredefinedToResponseMarshallers, ToRespon
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, RequestEntity}
 import akka.http.scaladsl.server.RequestContext
 import akka.stream.Materializer
-import com.typesafe.scalalogging.LazyLogging
 import modux.model.dsl.ResponseAsFalseFail
 import modux.model.instruction.impl.response.{ResponseInstruction, SetStatus}
 import org.pac4j.core.profile.UserProfile

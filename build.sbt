@@ -2,7 +2,7 @@ enablePlugins(UpdatesPlugin)
 
 import sbt._
 ThisBuild / versionScheme := Option("early-semver")
-ThisBuild / version := "1.2.4"
+ThisBuild / version := "1.2.5"
 ThisBuild / description := "A microservice server for Scala"
 ThisBuild / organization := "io.github.joacovela16"
 ThisBuild / organizationName := "jsoft"

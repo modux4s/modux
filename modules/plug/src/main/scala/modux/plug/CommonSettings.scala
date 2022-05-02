@@ -1,6 +1,6 @@
 package modux.plug
 
-import sbt._
+import sbt.*
 
 trait CommonSettings {
   val startHook = settingKey[Seq[Def.Initialize[Task[Unit]]]]("start hooks")

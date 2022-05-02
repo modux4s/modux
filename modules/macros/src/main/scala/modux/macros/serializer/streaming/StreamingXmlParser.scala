@@ -1,10 +1,11 @@
 package modux.macros.serializer.streaming
 
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
-import com.fasterxml.aalto.{AsyncByteArrayFeeder, AsyncXMLInputFactory, AsyncXMLStreamReader}
 import com.fasterxml.aalto.stax.InputFactoryImpl
+import com.fasterxml.aalto.{AsyncByteArrayFeeder, AsyncXMLInputFactory, AsyncXMLStreamReader}
+
 import javax.xml.stream.XMLStreamConstants
 
 class StreamingXmlParser(maximumTextLength: Int = 1024) extends GraphStage[FlowShape[ByteString, ByteString]] {

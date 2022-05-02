@@ -7,18 +7,18 @@ import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 import com.typesafe.sbt.web.Import.Assets
 import com.typesafe.sbt.web.SbtWeb
 import modux.plug.HookPlugin
-import modux.plugin.core._
+import modux.plugin.core.*
 import modux.shared.PrintUtils
-import sbt.Keys._
-import sbt.nio.Keys._
+import sbt.Keys.*
+import sbt.nio.Keys.*
 import sbt.nio.Watch
 import sbt.plugins.JvmPlugin
 import sbt.util.CacheStore
-import sbt.util.StampedFormat._
-import sbt.{AutoPlugin, Command, Def, Plugins, Project, ProjectRef, State, Task, file, _}
+import sbt.util.StampedFormat.*
+import sbt.{AutoPlugin, Command, Def, Plugins, Project, ProjectRef, State, Task, file, *}
 
 import java.io.File
-import java.nio.file.{Path => JPath}
+import java.nio.file.Path as JPath
 import java.util
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
@@ -39,8 +39,8 @@ object ModuxService extends AutoPlugin {
   object autoImport extends ModuxServiceSettings {
   }
 
-  import autoImport._
-  import modux.plug.HookPlugin.autoImport._
+  import autoImport.*
+  import modux.plug.HookPlugin.autoImport.*
 
   val watchOnFileInputEventImpl: (Int, Watch.Event) => Watch.ContinueWatch = (_: Int, y: Watch.Event) => {
     val path: String = y.path.toFile.getAbsolutePath

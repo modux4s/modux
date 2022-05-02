@@ -22,7 +22,7 @@ object Deps {
 	private final val aaltoXmlParserVersion: String = "1.3.1"
 	private final val configScalaVersion: String = "2.0.0"
 	private final val scalaTestVersion: String = "3.2.11"
-	private final val swaggerVersion3: String = "2.1.4"
+	private final val swaggerVersion3: String = "2.2.0"
 	private final val swaggerVersion2: String = "1.6.6"
 	private final val javaxrsVersion3: String = "2.1.1"
 	private final val woodstoxVersion: String = "6.2.8"

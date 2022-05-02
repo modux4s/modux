@@ -1,7 +1,7 @@
 package modux.macros.serializer
 
 import modux.macros.service.ServiceSupportMacro
-import modux.model.exporter.{EvidenceDescriptor, SchemaDescriptor}
+import modux.model.exporter.SchemaDescriptor
 
 trait SchemaSupport {
   protected def by[A]: Option[SchemaDescriptor] = macro ServiceSupportMacro.extractSchemaMacro[A]

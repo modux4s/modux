@@ -1,7 +1,7 @@
 package modux.server.lib
 
 import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
-import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.server.Route
 import modux.model.ServiceEntry
 import modux.model.dsl.{NameSpacedEntry, RestEntry}
 import modux.model.rest.RestInstance

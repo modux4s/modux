@@ -1,7 +1,7 @@
 package modux.plugin.web
 
-import sbt.Keys._
-import sbt._
+import sbt.*
+import sbt.Keys.*
 
 case object ModuxWebDefaults {
   private val pac4jVersion: String = buildinfo.BuildInfo.pac4jVersion

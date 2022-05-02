@@ -1,7 +1,7 @@
 package modux.plugin.kafka.service
 
 import modux.plugin.kafka.Callback
-import sbt._
+import sbt.*
 import sbt.internal.util.ManagedLogger
 
 import java.io.{BufferedReader, File, FileInputStream, FileReader}

@@ -1,6 +1,5 @@
 package modux.macros.serializer.websocket
 
-import scala.concurrent.Future
 import scala.reflect.macros.blackbox
 
 object JsonWebSocketCodecImpl {

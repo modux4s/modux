@@ -10,7 +10,7 @@ object HookPlugin extends AutoPlugin {
   object autoImport extends CommonSettings {
   }
 
-  import autoImport._
+  import autoImport.*
 
   override def projectSettings: Seq[Def.Setting[_]] = Seq(
     startHook := Nil,

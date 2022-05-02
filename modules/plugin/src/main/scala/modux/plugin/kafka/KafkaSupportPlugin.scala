@@ -2,17 +2,17 @@ package modux.plugin.kafka
 
 import modux.plug.HookPlugin
 import modux.plugin.classutils.FileTool
-import modux.plugin.kafka.service.{KafkaService, ZookeeperService}
 import modux.plugin.core.CommonSettings.moduxKafka
-import sbt.Keys._
+import modux.plugin.kafka.service.{KafkaService, ZookeeperService}
+import sbt.Keys.*
 import sbt.internal.util.ManagedLogger
 import sbt.io.IO
 import sbt.plugins.JvmPlugin
-import sbt.{AutoPlugin, Def, Plugins, url, _}
+import sbt.{AutoPlugin, Def, Plugins, url, *}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.reflect.io.Directory
-import scala.sys.process._
+import scala.sys.process.*
 import scala.util.Try
 
 object KafkaSupportPlugin extends AutoPlugin {
@@ -23,8 +23,8 @@ object KafkaSupportPlugin extends AutoPlugin {
 
   object autoImport extends KafkaSupportSettings
 
-  import autoImport._
-  import modux.plug.HookPlugin.autoImport._
+  import autoImport.*
+  import modux.plug.HookPlugin.autoImport.*
 
   private val isLinux: Boolean = System.getProperty("os.name").toLowerCase match {
     case win if win.contains("win") => false

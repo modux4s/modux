@@ -1,7 +1,6 @@
 package modux.macros.service
 
 import akka.NotUsed
-import akka.http.scaladsl.server.Directives
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import modux.macros.MacroUtils

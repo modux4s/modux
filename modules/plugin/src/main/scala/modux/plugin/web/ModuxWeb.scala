@@ -3,7 +3,7 @@ package modux.plugin.web
 import com.typesafe.sbt.web.SbtWeb
 import play.twirl.sbt.SbtTwirl
 import sbt.plugins.JvmPlugin
-import sbt.{Def, _}
+import sbt.{Def, *}
 
 case object ModuxWeb extends AutoPlugin {
   override def requires: Plugins = JvmPlugin && SbtTwirl && SbtWeb

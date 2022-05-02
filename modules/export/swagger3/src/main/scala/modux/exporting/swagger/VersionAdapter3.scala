@@ -59,7 +59,10 @@ object VersionAdapter3 {
 
       case x: MArraySchema => new ArraySchema().items(VersionAdapter3(x.item))
       case x: MComposed =>
-        x.items.foldLeft(new ComposedSchema) { case (comp, x) => comp.addOneOfItem(VersionAdapter3(x)) }
+        x.items.foldLeft(new ComposedSchema) { case (comp, x) =>
+          comp.addOneOfItem(VersionAdapter3(x))
+          comp
+        }
     }
   }
 }

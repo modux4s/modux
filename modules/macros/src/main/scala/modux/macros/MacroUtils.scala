@@ -1,6 +1,6 @@
 package modux.macros
 
-import modux.model.rest.{AnythingPath, AsPath, AsPathParam, Path, PathMetadata, AsRegexPath}
+import modux.model.rest.PathMetadata
 
 import scala.reflect.macros.blackbox
 

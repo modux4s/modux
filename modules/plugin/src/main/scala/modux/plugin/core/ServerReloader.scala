@@ -4,11 +4,11 @@ import modux.plugin.classutils.DelegatingClassLoader
 import modux.plugin.core.Types.Server
 import modux.shared.{BuildContext, ServerDecl, Threads}
 import org.apache.xbean.classloader.{JarFileClassLoader, NamedClassLoader}
-import sbt._
+import sbt.*
 
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters.*
 import scala.language.reflectiveCalls
 import scala.util.Try
 

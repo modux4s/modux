@@ -5,18 +5,17 @@ import akka.actor.typed.ActorSystem
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
+import com.github.andyglow.config._
 import com.typesafe.scalalogging.LazyLogging
 import modux.model.ServiceEntry
 import modux.model.context.Context
+import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
-import com.github.andyglow.config._
-import org.apache.kafka.clients.consumer.ConsumerConfig
-
-import java.util.UUID
 
 case class KafkaSupportService(topicName: String, call: Topic => Future[Unit], context: Context) extends ServiceEntry with LazyLogging /*with Runnable*/ {
 

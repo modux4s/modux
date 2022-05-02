@@ -1,7 +1,7 @@
 package modux.macros.utils
 
 import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.server.{Directive0, Directive1, Directives, RequestContext}
+import akka.http.scaladsl.server.{Directive0, Directives, RequestContext}
 import modux.model.header._
 import modux.model.instruction.impl.response.ResponseInstruction
 import org.slf4j.{Logger, LoggerFactory}

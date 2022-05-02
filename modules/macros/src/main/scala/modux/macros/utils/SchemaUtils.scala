@@ -1,11 +1,10 @@
 package modux.macros.utils
 
+import modux.macros.MacroUtils._
+
 import java.sql.{Time, Timestamp, Date => SQLDate}
 import java.time._
 import java.util.Date
-
-import modux.macros.MacroUtils._
-
 import scala.collection.mutable
 import scala.reflect.macros.blackbox
 

@@ -1,8 +1,6 @@
 package modux.macros.service
 
 import modux.model.dsl.RestEntry
-import modux.model.rest.RestService
-import modux.model.service.Call
 
 //noinspection ScalaUnusedSymbol
 trait MethodDSL {
